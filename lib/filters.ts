@@ -55,8 +55,19 @@ export function serializePeriodCookie(period: PeriodFilter): string {
   return encodeURIComponent(JSON.stringify(period));
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * O cookie é gravado pelo próprio client (`FiltersProvider`), então tecnicamente é
+ * controlado pelo usuário — `profiles.id` é sempre um UUID gerado pelo banco, então
+ * qualquer outro formato é tratado como cookie corrompido/malicioso e cai em "all".
+ * Importa principalmente pra quem usa esse valor num filtro `.or()` do PostgREST
+ * (string crua, diferente de `.eq()` que já é parametrizado) — ver dashboard.
+ */
 export function parseProfileCookie(value: string | undefined): ProfileFilter {
-  return value && value.trim().length > 0 ? value : "all";
+  if (!value) return "all";
+  const trimmed = value.trim();
+  return UUID_RE.test(trimmed) ? trimmed : "all";
 }
 
 export function shiftMonthPeriod(period: PeriodFilter, delta: number): PeriodFilter {
@@ -75,6 +86,54 @@ export function periodToDateRange(period: PeriodFilter): { from: string; to: str
     from: `${period.year}-${pad(period.month)}-01`,
     to: `${period.year}-${pad(period.month)}-${pad(lastDay)}`,
   };
+}
+
+/**
+ * Período imediatamente anterior, de mesma duração — usado pelo dashboard pra
+ * calcular a tendência ("↑ R$ 1.420 vs mês anterior", Prompt Mestre §16). Pra período
+ * em mês, é literalmente o mês anterior; pra range personalizado, é o mesmo número de
+ * dias imediatamente antes de `from`.
+ */
+export function previousPeriodRange(period: PeriodFilter): { from: string; to: string } {
+  if (period.kind === "month") {
+    return periodToDateRange(shiftMonthPeriod(period, -1));
+  }
+
+  const from = new Date(period.from + "T00:00:00");
+  const to = new Date(period.to + "T00:00:00");
+  const durationDays = Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1;
+
+  const prevTo = new Date(from);
+  prevTo.setDate(prevTo.getDate() - 1);
+  const prevFrom = new Date(prevTo);
+  prevFrom.setDate(prevFrom.getDate() - (durationDays - 1));
+
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: iso(prevFrom), to: iso(prevTo) };
+}
+
+/** Os `count` meses de calendário terminando no mês que contém `anchorIso` (inclusive). */
+export function trailingMonths(
+  anchorIso: string,
+  count: number,
+): Array<{ year: number; month: number; from: string; to: string; label: string }> {
+  const anchor = new Date(anchorIso + "T00:00:00");
+  const months: Array<{ year: number; month: number; from: string; to: string; label: string }> = [];
+
+  for (let i = count - 1; i >= 0; i--) {
+    const date = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
+    const period: PeriodFilter = { kind: "month", year: date.getFullYear(), month: date.getMonth() + 1 };
+    const { from, to } = periodToDateRange(period);
+    months.push({
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      from,
+      to,
+      label: `${MONTH_NAMES[date.getMonth()].slice(0, 3)}/${String(date.getFullYear()).slice(2)}`,
+    });
+  }
+
+  return months;
 }
 
 export function formatPeriodLabel(period: PeriodFilter): string {

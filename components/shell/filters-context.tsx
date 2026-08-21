@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
   PROFILE_COOKIE,
   PERIOD_COOKIE,
@@ -42,16 +43,30 @@ export function FiltersProvider({
 }) {
   const [profileId, setProfileIdState] = useState<ProfileFilter>(initialProfileId);
   const [period, setPeriodState] = useState<PeriodFilter>(initialPeriod);
+  const router = useRouter();
 
-  const setProfileId = useCallback((id: ProfileFilter) => {
-    setProfileIdState(id);
-    document.cookie = `${PROFILE_COOKIE}=${id}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
-  }, []);
+  // As páginas que consomem o filtro (dashboard, transações, ...) são Server
+  // Components que leem o cookie no fetch inicial — mudar o cookie sozinho não
+  // dispara uma nova renderização delas, já que a URL não muda. `router.refresh()`
+  // força o Next a re-executar os Server Components da rota atual com o cookie novo,
+  // sem perder o estado do client (Dialogs abertos, etc.) nem recarregar a página.
+  const setProfileId = useCallback(
+    (id: ProfileFilter) => {
+      setProfileIdState(id);
+      document.cookie = `${PROFILE_COOKIE}=${id}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
+      router.refresh();
+    },
+    [router],
+  );
 
-  const setPeriod = useCallback((next: PeriodFilter) => {
-    setPeriodState(next);
-    document.cookie = `${PERIOD_COOKIE}=${serializePeriodCookie(next)}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
-  }, []);
+  const setPeriod = useCallback(
+    (next: PeriodFilter) => {
+      setPeriodState(next);
+      document.cookie = `${PERIOD_COOKIE}=${serializePeriodCookie(next)}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
+      router.refresh();
+    },
+    [router],
+  );
 
   return (
     <FiltersContext.Provider value={{ profiles, profileId, setProfileId, period, setPeriod }}>
