@@ -1944,6 +1944,31 @@ export type Database = {
     }
     Functions: {
       accept_household_invite: { Args: { p_token: string }; Returns: string }
+      adjust_account_balance: {
+        Args: { p_account_id: string; p_delta: number }
+        Returns: {
+          active: boolean
+          bank_connection_id: string | null
+          created_at: string
+          currency: string
+          current_balance: number
+          deleted_at: string | null
+          external_account_id: string | null
+          household_id: string
+          id: string
+          institution_name: string | null
+          name: string
+          profile_id: string
+          type: Database["public"]["Enums"]["account_type"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       can_access_profile: { Args: { p_profile_id: string }; Returns: boolean }
       dashboard_monthly_summary: {
         Args: { p_household_id: string; p_month: string; p_profile_id?: string }
@@ -1975,6 +2000,53 @@ export type Database = {
       is_household_member: {
         Args: { p_household_id: string }
         Returns: boolean
+      }
+      replace_transaction_splits: {
+        Args: { p_splits: Json; p_transaction_id: string }
+        Returns: {
+          amount: number
+          category_id: string
+          created_at: string
+          id: string
+          profile_id: string | null
+          subcategory_id: string | null
+          transaction_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "transaction_splits"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      upsert_credit_card_bill_delta: {
+        Args: {
+          p_closing_date: string
+          p_credit_card_id: string
+          p_delta: number
+          p_due_date: string
+          p_household_id: string
+          p_reference_month: string
+        }
+        Returns: {
+          closing_date: string
+          created_at: string
+          credit_card_id: string
+          due_date: string
+          external_id: string | null
+          household_id: string
+          id: string
+          reference_month: string
+          status: Database["public"]["Enums"]["credit_card_bill_status"]
+          total_amount: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "credit_card_bills"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

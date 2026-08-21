@@ -65,6 +65,18 @@ export function shiftMonthPeriod(period: PeriodFilter, delta: number): PeriodFil
   return { kind: "month", year: date.getFullYear(), month: date.getMonth() + 1 };
 }
 
+/** Converte o período em um intervalo de datas ISO (yyyy-mm-dd, inclusive nas pontas). */
+export function periodToDateRange(period: PeriodFilter): { from: string; to: string } {
+  if (period.kind === "range") return { from: period.from, to: period.to };
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const lastDay = new Date(period.year, period.month, 0).getDate();
+  return {
+    from: `${period.year}-${pad(period.month)}-01`,
+    to: `${period.year}-${pad(period.month)}-${pad(lastDay)}`,
+  };
+}
+
 export function formatPeriodLabel(period: PeriodFilter): string {
   if (period.kind === "month") {
     return `${MONTH_NAMES[period.month - 1]} ${period.year}`;
