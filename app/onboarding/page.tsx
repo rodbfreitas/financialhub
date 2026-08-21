@@ -22,7 +22,7 @@ export default async function OnboardingPage() {
     case "already_member":
     case "created":
     case "joined":
-      redirect("/");
+      redirect("/dashboard");
     case "needs_setup":
       return (
         <AuthShell

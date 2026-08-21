@@ -134,7 +134,7 @@ export async function createHouseholdAction(
     .maybeSingle();
 
   if (existingMembership) {
-    redirect("/");
+    redirect("/dashboard");
   }
 
   const { data: household, error: householdError } = await supabase
@@ -158,5 +158,5 @@ export async function createHouseholdAction(
     return { error: "Não foi possível concluir a configuração. Tente novamente." };
   }
 
-  redirect("/");
+  redirect("/dashboard");
 }
