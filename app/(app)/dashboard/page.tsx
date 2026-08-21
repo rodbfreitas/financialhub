@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { ArrowDownRight, ArrowUpRight, PiggyBank, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, PiggyBank, TrendingUp, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId } from "@/lib/supabase/household";
 import {
@@ -22,6 +22,7 @@ import {
   splitFixedVariable,
   type DashboardTxRow,
 } from "@/lib/dashboard";
+import { projectBalance } from "@/lib/projections";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { CashFlowChart } from "@/components/dashboard/cash-flow-chart";
@@ -69,6 +70,8 @@ export default async function DashboardPage() {
     { data: budgets },
     { data: recurringRaw },
     { data: billsRaw },
+    { data: accountsRaw },
+    { data: recurringForProjectionRaw },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -138,6 +141,19 @@ export default async function DashboardPage() {
       .neq("status", "paid")
       .order("due_date", { ascending: true })
       .limit(20),
+    supabase
+      .from("accounts")
+      .select("id, currency, current_balance, active")
+      .eq("household_id", householdId)
+      .eq("active", true),
+    withProfileFilter(
+      supabase
+        .from("recurring_transactions")
+        .select("type, amount, next_occurrence, frequency, interval, end_date")
+        .eq("household_id", householdId)
+        .eq("active", true)
+        .gte("next_occurrence", todayIso),
+    ),
   ]);
 
   const periodRows = (periodTxns ?? []) as DashboardTxRow[];
@@ -197,6 +213,26 @@ export default async function DashboardPage() {
     profileName: (r.profiles as { name: string } | null)?.name ?? "—",
   }));
 
+  // Saldo projetado (PRD §49) — soma o saldo atual das contas em BRL às ocorrências
+  // futuras de recorrências ativas dentro da janela (ver lib/projections.ts). Não
+  // conta parcelas de cartão de novo: elas já nascem como transações reais na
+  // criação do parcelamento (Etapa 6) e já estão refletidas no saldo atual.
+  const accountsTotalBRL = (accountsRaw ?? [])
+    .filter((a) => a.currency === "BRL")
+    .reduce((sum, a) => sum + Number(a.current_balance), 0);
+  const projectedBalance30d = projectBalance(
+    accountsTotalBRL,
+    (recurringForProjectionRaw ?? []).map((r) => ({
+      type: r.type as "income" | "expense",
+      amount: Number(r.amount),
+      nextOccurrence: r.next_occurrence,
+      frequency: r.frequency,
+      interval: r.interval,
+      endDate: r.end_date,
+    })),
+    30,
+  );
+
   const billsUpcoming: UpcomingBill[] = (billsRaw ?? [])
     .filter((b) => profileFilter === "all" || (b.credit_cards as { profile_id: string } | null)?.profile_id === profileFilter)
     .slice(0, 8)
@@ -234,6 +270,10 @@ export default async function DashboardPage() {
           higherIsBetter
           unit="percent"
         />
+      </div>
+
+      <div className="sm:max-w-xs">
+        <KpiCard icon={TrendingUp} label="Saldo projetado em 30 dias" value={projectedBalance30d} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
