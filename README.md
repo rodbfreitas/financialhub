@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Financial Hub Familiar
 
-## Getting Started
+> Sua vida financeira, finalmente clara.
 
-First, run the development server:
+Plataforma privada de gestão financeira pessoal e familiar. Centraliza receitas,
+despesas, contas, cartões, faturas, parcelamentos, assinaturas, orçamento, metas
+e patrimônio — com visão individual, compartilhada e consolidada.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Este repositório é construído a partir de quatro documentos soberanos do
+projeto (mantidos no Financial Hub — Claude Project): PRD v1.0, Arquitetura
+Técnica & ERD v1.0, Design System & UX/UI v1.0 e o Prompt Mestre de
+Desenvolvimento. Em caso de dúvida sobre um requisito, esses documentos são a
+fonte da verdade — não este README.
+
+## Stack
+
+- **Frontend:** Next.js 16 (App Router) · React 19 · TypeScript
+- **UI:** Tailwind CSS v4 · componentes no padrão shadcn/ui (escritos localmente
+  — ver nota abaixo) · Lucide Icons · Recharts
+- **Backend:** Supabase (PostgreSQL, Auth, Storage)
+- **Hosting:** Vercel
+- **Repositório:** GitHub
+- **Open Finance (Fase 2):** Pluggy, por trás de uma camada `FinancialDataProvider`
+
+> **Nota sobre shadcn/ui:** o sandbox de desenvolvimento usado para o scaffold
+> inicial não tem acesso de rede a `ui.shadcn.com`, então os componentes em
+> `components/ui/` foram escritos manualmente seguindo exatamente os mesmos
+> padrões (Radix primitives + `class-variance-authority` + `cn()`) em vez de
+> gerados pela CLI. O resultado é equivalente; a CLI (`npx shadcn add ...`)
+> pode ser usada normalmente em qualquer ambiente com acesso a esse domínio.
+
+## Estrutura do projeto
+
+```
+financial-hub/
+├── app/                  # Rotas (App Router)
+├── components/
+│   ├── ui/               # Primitivos (padrão shadcn/ui)
+│   ├── layout/           # Sidebar, TopBar, navegação
+│   ├── dashboard/        # MetricCard, InsightCard, etc.
+│   ├── transactions/     # TransactionTable, TransactionDrawer, TransactionForm
+│   ├── charts/           # Wrappers Recharts
+│   └── forms/
+├── lib/
+│   ├── supabase/         # Clients (browser/server/middleware)
+│   ├── finance/          # Regras de negócio financeiras
+│   ├── imports/          # Parsers e pipeline de importação
+│   ├── security/         # Helpers de autorização
+│   └── integrations/     # FinancialDataProvider (Pluggy e futuros)
+├── actions/               # Server Actions
+├── types/                 # Tipos compartilhados (incl. types/database.ts gerado)
+├── supabase/
+│   ├── migrations/        # Migrations versionadas (fonte da verdade do schema)
+│   ├── seed.sql            # Dados fictícios de desenvolvimento
+│   └── functions/
+└── tests/
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+cp .env.example .env.local   # preencha com as credenciais do projeto Supabase
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Variáveis de ambiente
 
-## Learn More
+Ver `.env.example`. `SUPABASE_SERVICE_ROLE_KEY`, `PLUGGY_CLIENT_SECRET` e
+`AI_API_KEY` nunca devem ser expostas ao browser nem commitadas — em produção
+vivem apenas nas Environment Variables da Vercel.
 
-To learn more about Next.js, take a look at the following resources:
+## Migrations
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+O schema é versionado em `supabase/migrations/`. Nunca alterar o banco de
+produção manualmente — toda mudança de schema é um novo arquivo de migration.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Desenvolvimento
 
-## Deploy on Vercel
+```bash
+npm run lint       # ESLint
+npx tsc --noEmit   # Typecheck
+npm run build      # Build de produção
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Testes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm test
+```
+
+## Deploy
+
+GitHub → Vercel (build automático). Ambientes: `development` e `production`,
+com banco e secrets próprios em cada Supabase project.
+
+## Status de implementação
+
+Ver o board de tarefas do projeto para o estado atual de cada etapa (0–13).
+Este README será mantido honesto sobre o que está **implementado**, **testado**
+e **publicado** — nunca descrevendo como pronto algo que ainda não está.
