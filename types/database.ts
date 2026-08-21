@@ -759,6 +759,53 @@ export type Database = {
           },
         ]
       }
+      household_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          household_id: string
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["household_role"]
+          status: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          household_id: string
+          id?: string
+          invited_by: string
+          role?: Database["public"]["Enums"]["household_role"]
+          status?: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          household_id?: string
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["household_role"]
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_invites_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_members: {
         Row: {
           created_at: string
@@ -1896,6 +1943,7 @@ export type Database = {
       }
     }
     Functions: {
+      accept_household_invite: { Args: { p_token: string }; Returns: string }
       can_access_profile: { Args: { p_profile_id: string }; Returns: boolean }
       dashboard_monthly_summary: {
         Args: { p_household_id: string; p_month: string; p_profile_id?: string }
@@ -1907,6 +1955,14 @@ export type Database = {
           expenses: number
           income: number
           savings_rate: number
+        }[]
+      }
+      get_invite_preview: {
+        Args: { p_token: string }
+        Returns: {
+          email: string
+          household_name: string
+          role: Database["public"]["Enums"]["household_role"]
         }[]
       }
       has_household_role: {
