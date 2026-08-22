@@ -161,7 +161,9 @@ export default async function RelatoriosPage() {
 
   const totals = sumTotals(dashboardPeriodRows);
   const monthly = groupByMonth(dashboardTrendRows, months);
+  const monthlyHasData = monthly.some((m) => m.income !== 0 || m.expenses !== 0);
   const fixedVariableTrend = groupFixedVariableByMonth(trendRows, months);
+  const fixedVariableHasData = fixedVariableTrend.some((m) => m.fixed !== 0 || m.variable !== 0);
 
   const categoryMap = new Map((categories ?? []).map((c) => [c.id, c.name]));
   const categoryFull = groupByCategory(dashboardPeriodRows, categoryMap, 999);
@@ -171,6 +173,7 @@ export default async function RelatoriosPage() {
 
   const natureTotals = groupByNature(periodRows);
   const natureTrend = groupByNatureByMonth(trendRows, months);
+  const natureTrendHasData = natureTrend.some((m) => m.individual !== 0 || m.shared !== 0);
   const natureSlices = [
     { categoryId: "individual", name: "Individual", amount: natureTotals.individual.expenses, percentage: 0 },
     { categoryId: "shared", name: "Compartilhado", amount: natureTotals.shared.expenses, percentage: 0 },
@@ -187,6 +190,7 @@ export default async function RelatoriosPage() {
     percentage: c.percentage,
   }));
   const cardTrend = groupCardTotalByMonth(trendRows, months);
+  const cardTrendHasData = cardTrend.some((m) => m.expenses !== 0);
 
   const daily = dailyCashFlow(periodRows, from, to);
 
@@ -272,7 +276,11 @@ export default async function RelatoriosPage() {
                 <CardTitle className="text-base font-medium text-foreground">Receitas x despesas — evolução mensal (12 meses)</CardTitle>
               </CardHeader>
               <CardContent>
-                <CashFlowChart data={monthly} />
+                {monthlyHasData ? (
+                  <CashFlowChart data={monthly} />
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma transação encontrada nos últimos 12 meses.</p>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -280,7 +288,11 @@ export default async function RelatoriosPage() {
                 <CardTitle className="text-base font-medium text-foreground">Evolução do saldo</CardTitle>
               </CardHeader>
               <CardContent>
-                <BalanceTrendChart data={monthly} />
+                {monthlyHasData ? (
+                  <BalanceTrendChart data={monthly} />
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma transação encontrada nos últimos 12 meses.</p>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -288,7 +300,11 @@ export default async function RelatoriosPage() {
                 <CardTitle className="text-base font-medium text-foreground">Fixas x variáveis</CardTitle>
               </CardHeader>
               <CardContent>
-                <FixedVariableTrendChart data={fixedVariableTrend} />
+                {fixedVariableHasData ? (
+                  <FixedVariableTrendChart data={fixedVariableTrend} />
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa encontrada nos últimos 12 meses.</p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -326,7 +342,11 @@ export default async function RelatoriosPage() {
               <CardTitle className="text-base font-medium text-foreground">Compartilhado x individual — evolução mensal</CardTitle>
             </CardHeader>
             <CardContent>
-              <NatureTrendChart data={natureTrend} />
+              {natureTrendHasData ? (
+                <NatureTrendChart data={natureTrend} />
+              ) : (
+                <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa encontrada nos últimos 12 meses.</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -346,7 +366,11 @@ export default async function RelatoriosPage() {
                 <CardTitle className="text-base font-medium text-foreground">Total em cartões — evolução mensal</CardTitle>
               </CardHeader>
               <CardContent>
-                <SpendTrendChart data={cardTrend} label="Cartões" />
+                {cardTrendHasData ? (
+                  <SpendTrendChart data={cardTrend} label="Cartões" />
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">Nenhum gasto em cartão nos últimos 12 meses.</p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -373,31 +397,33 @@ export default async function RelatoriosPage() {
               {subscriptions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhuma assinatura ativa neste filtro.</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Frequência</TableHead>
-                      <TableHead className="text-right">Equivalente mensal</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {subscriptions
-                      .slice()
-                      .sort((a, b) => monthlyEquivalent(Number(b.amount), b.frequency) - monthlyEquivalent(Number(a.amount), a.frequency))
-                      .map((s) => (
-                        <TableRow key={s.id}>
-                          <TableCell>{s.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{(s.categories as { name: string } | null)?.name ?? "—"}</TableCell>
-                          <TableCell>{FREQUENCY_LABELS[s.frequency] ?? s.frequency}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            <MoneyDisplay amount={monthlyEquivalent(Number(s.amount), s.frequency)} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Frequência</TableHead>
+                        <TableHead className="text-right">Equivalente mensal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {subscriptions
+                        .slice()
+                        .sort((a, b) => monthlyEquivalent(Number(b.amount), b.frequency) - monthlyEquivalent(Number(a.amount), a.frequency))
+                        .map((s) => (
+                          <TableRow key={s.id}>
+                            <TableCell>{s.name}</TableCell>
+                            <TableCell className="text-muted-foreground">{(s.categories as { name: string } | null)?.name ?? "—"}</TableCell>
+                            <TableCell>{FREQUENCY_LABELS[s.frequency] ?? s.frequency}</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              <MoneyDisplay amount={monthlyEquivalent(Number(s.amount), s.frequency)} />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -412,34 +438,36 @@ export default async function RelatoriosPage() {
               {budgetVarianceRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum orçamento definido para este período.</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead className="text-right">Planejado</TableHead>
-                      <TableHead className="text-right">Realizado</TableHead>
-                      <TableHead className="text-right">Variação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {budgetVarianceRows.map((row) => (
-                      <TableRow key={row.categoryId}>
-                        <TableCell>{row.categoryName}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatMoney(row.planned)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatMoney(row.realized)}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          <div className="flex items-center justify-end gap-2">
-                            <MoneyDisplay amount={row.variance} signed />
-                            <Badge variant={row.variance > 0 ? "negative" : "outline"}>
-                              {row.variancePercent > 0 ? "+" : ""}
-                              {row.variancePercent.toFixed(0)}%
-                            </Badge>
-                          </div>
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead className="text-right">Planejado</TableHead>
+                        <TableHead className="text-right">Realizado</TableHead>
+                        <TableHead className="text-right">Variação</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {budgetVarianceRows.map((row) => (
+                        <TableRow key={row.categoryId}>
+                          <TableCell>{row.categoryName}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatMoney(row.planned)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatMoney(row.realized)}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <div className="flex items-center justify-end gap-2">
+                              <MoneyDisplay amount={row.variance} signed />
+                              <Badge variant={row.variance > 0 ? "negative" : "outline"}>
+                                {row.variancePercent > 0 ? "+" : ""}
+                                {row.variancePercent.toFixed(0)}%
+                              </Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>

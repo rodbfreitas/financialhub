@@ -227,6 +227,8 @@ export function SplitDialog({
                       size="icon"
                       className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={() => removeRow(row.key)}
+                      aria-label="Remover esta divisão"
+                      title="Remover esta divisão"
                     >
                       <Trash2 className="size-4" />
                     </Button>

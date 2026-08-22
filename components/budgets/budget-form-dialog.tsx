@@ -313,6 +313,8 @@ export function BudgetFormDialog({
                       className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={() => removeRow(row.key)}
                       disabled={rows.length === 1}
+                      aria-label="Remover esta categoria do orçamento"
+                      title="Remover esta categoria do orçamento"
                     >
                       <Trash2 className="size-4" />
                     </Button>

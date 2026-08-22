@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { confirmImport, cancelImport } from "@/actions/imports";
 import { parseMoneyInput } from "@/lib/money";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -252,12 +253,16 @@ export function ImportReviewTable({
       </div>
 
       <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={cancelPending}
-          onClick={() => {
-            if (!window.confirm("Cancelar esta importação? Nenhuma transação será criada.")) return;
+        <ConfirmDialog
+          trigger={
+            <Button type="button" variant="outline" disabled={cancelPending}>
+              Cancelar importação
+            </Button>
+          }
+          title="Cancelar esta importação?"
+          description="Nenhuma transação será criada. Os arquivos enviados continuam salvos, mas o lote fica marcado como cancelado."
+          confirmLabel="Cancelar importação"
+          onConfirm={() => {
             startCancel(async () => {
               const result = await cancelImport(importId);
               if (result?.error) toast.error(result.error);
@@ -267,9 +272,7 @@ export function ImportReviewTable({
               }
             });
           }}
-        >
-          Cancelar importação
-        </Button>
+        />
         <Button type="submit" disabled={pending || includedCount === 0}>
           {pending ? "Confirmando…" : `Confirmar importação (${includedCount})`}
         </Button>
