@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createHouseholdSchema } from "@/lib/validations/household";
@@ -66,18 +67,24 @@ export async function finalizeHouseholdSetup(): Promise<FinalizeResult> {
   }
 
   if (pendingHouseholdName) {
-    const { data: household, error: householdError } = await supabase
+    // Id gerado no client e enviado explicitamente no insert (em vez de `.select().single()`
+    // pra ler de volta via RETURNING) — bug real encontrado em produção nesta sessão: com
+    // RETURNING, o Postgres também aplica a policy de SELECT (`is_household_member(id)`) à
+    // linha retornada, e nesse exato instante o usuário AINDA não é membro (isso só é criado
+    // no próximo insert, em household_members) — então a RLS rejeitava o INSERT inteiro com
+    // "new row violates row-level security policy", mesmo a policy de INSERT (`auth.uid() is
+    // not null`) sendo satisfeita. Sem RETURNING, só a policy de INSERT é avaliada.
+    const householdId = randomUUID();
+    const { error: householdError } = await supabase
       .from("households")
-      .insert({ name: pendingHouseholdName })
-      .select("id")
-      .single();
+      .insert({ id: householdId, name: pendingHouseholdName });
 
-    if (householdError || !household) {
-      return { status: "error", message: householdError?.message ?? "household_insert_failed" };
+    if (householdError) {
+      return { status: "error", message: householdError.message };
     }
 
     const { error: memberError } = await supabase.from("household_members").insert({
-      household_id: household.id,
+      household_id: householdId,
       user_id: user.id,
       role: "owner",
       status: "active",
@@ -88,7 +95,7 @@ export async function finalizeHouseholdSetup(): Promise<FinalizeResult> {
     }
 
     await supabase.auth.updateUser({ data: { pending_household_name: null } });
-    return { status: "created", householdId: household.id };
+    return { status: "created", householdId };
   }
 
   // Sem metadata de intenção (ex.: conta antiga, ou fluxo interrompido) — a página de
@@ -137,18 +144,20 @@ export async function createHouseholdAction(
     redirect("/dashboard");
   }
 
-  const { data: household, error: householdError } = await supabase
+  // Id gerado no client (ver o mesmo comentário em finalizeHouseholdSetup, acima) — sem isso
+  // o RETURNING implícito de `.select().single()` aciona a policy de SELECT
+  // (`is_household_member`) antes do usuário virar membro, e a RLS rejeita o insert inteiro.
+  const householdId = randomUUID();
+  const { error: householdError } = await supabase
     .from("households")
-    .insert({ name: parsed.data.householdName })
-    .select("id")
-    .single();
+    .insert({ id: householdId, name: parsed.data.householdName });
 
-  if (householdError || !household) {
+  if (householdError) {
     return { error: "Não foi possível criar seu household. Tente novamente." };
   }
 
   const { error: memberError } = await supabase.from("household_members").insert({
-    household_id: household.id,
+    household_id: householdId,
     user_id: user.id,
     role: "owner",
     status: "active",
