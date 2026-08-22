@@ -953,15 +953,19 @@ export type Database = {
       }
       imports: {
         Row: {
+          account_id: string | null
+          column_mapping: Json | null
           completed_at: string | null
           created_at: string
           created_by: string | null
+          credit_card_id: string | null
           duplicate_rows: number
           error_rows: number
           filename: string
           household_id: string
           id: string
           imported_rows: number
+          raw_headers: Json | null
           source_type: Database["public"]["Enums"]["transaction_source"]
           status: Database["public"]["Enums"]["import_status"]
           storage_path: string | null
@@ -969,15 +973,19 @@ export type Database = {
           valid_rows: number
         }
         Insert: {
+          account_id?: string | null
+          column_mapping?: Json | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          credit_card_id?: string | null
           duplicate_rows?: number
           error_rows?: number
           filename: string
           household_id: string
           id?: string
           imported_rows?: number
+          raw_headers?: Json | null
           source_type: Database["public"]["Enums"]["transaction_source"]
           status?: Database["public"]["Enums"]["import_status"]
           storage_path?: string | null
@@ -985,15 +993,19 @@ export type Database = {
           valid_rows?: number
         }
         Update: {
+          account_id?: string | null
+          column_mapping?: Json | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          credit_card_id?: string | null
           duplicate_rows?: number
           error_rows?: number
           filename?: string
           household_id?: string
           id?: string
           imported_rows?: number
+          raw_headers?: Json | null
           source_type?: Database["public"]["Enums"]["transaction_source"]
           status?: Database["public"]["Enums"]["import_status"]
           storage_path?: string | null
@@ -1001,6 +1013,20 @@ export type Database = {
           valid_rows?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "imports_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imports_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imports_household_id_fkey"
             columns: ["household_id"]
