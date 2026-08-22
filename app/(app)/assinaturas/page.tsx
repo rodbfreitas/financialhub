@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { setSubscriptionActive } from "@/actions/subscriptions";
 import { subscriptionFrequencyOptions } from "@/lib/validations/subscription";
+import { monthlyEquivalent, annualEquivalent } from "@/lib/subscriptions";
 
 export const metadata: Metadata = { title: "Assinaturas — Financial Hub Familiar" };
 
@@ -23,37 +24,6 @@ const FREQUENCY_LABELS: Record<string, string> = {
   annual: "Anual",
   custom: "Personalizada",
 };
-
-/** Mesma fórmula da view `subscription_summary` (013_views_and_rpc.sql). */
-function monthlyEquivalent(amount: number, frequency: string): number {
-  switch (frequency) {
-    case "weekly":
-      return (amount * 52) / 12;
-    case "quarterly":
-      return amount / 3;
-    case "semiannual":
-      return amount / 6;
-    case "annual":
-      return amount / 12;
-    default:
-      return amount;
-  }
-}
-
-function annualEquivalent(amount: number, frequency: string): number {
-  switch (frequency) {
-    case "weekly":
-      return amount * 52;
-    case "quarterly":
-      return amount * 4;
-    case "semiannual":
-      return amount * 2;
-    case "annual":
-      return amount;
-    default:
-      return amount * 12;
-  }
-}
 
 function formatDate(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });

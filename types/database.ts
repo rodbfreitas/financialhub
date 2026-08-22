@@ -1168,6 +1168,53 @@ export type Database = {
           },
         ]
       }
+      net_worth_snapshots: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          net_worth: number
+          snapshot_date: string
+          total_accounts: number
+          total_assets: number
+          total_credit_card_debt: number
+          total_liabilities: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          net_worth?: number
+          snapshot_date?: string
+          total_accounts?: number
+          total_assets?: number
+          total_credit_card_debt?: number
+          total_liabilities?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          net_worth?: number
+          snapshot_date?: string
+          total_accounts?: number
+          total_assets?: number
+          total_credit_card_debt?: number
+          total_liabilities?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "net_worth_snapshots_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -2044,6 +2091,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      snapshot_net_worth: {
+        Args: { p_household_id: string }
+        Returns: undefined
       }
       upsert_credit_card_bill_delta: {
         Args: {
