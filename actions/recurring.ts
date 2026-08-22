@@ -138,7 +138,9 @@ export async function generateRecurringTransaction(id: string): Promise<ActionSt
   } = await supabase.auth.getUser();
 
   const amount = Number(recurring.amount);
-  const contribution = contributionFor(recurring.type, amount);
+  // Fatura: despesa = +valor (aumenta o que se deve). Conta: convenção oposta —
+  // entrada positiva, saída negativa — por isso `-billContribution`.
+  const billContribution = contributionFor(recurring.type, amount);
 
   let creditCardBillId: string | null = null;
   if (recurring.credit_card_id) {
@@ -147,11 +149,11 @@ export async function generateRecurringTransaction(id: string): Promise<ActionSt
       householdId,
       recurring.credit_card_id,
       recurring.next_occurrence,
-      contribution,
+      billContribution,
     );
   }
   if (recurring.account_id) {
-    await applyAccountDelta(supabase, recurring.account_id, contribution);
+    await applyAccountDelta(supabase, recurring.account_id, -billContribution);
   }
 
   const { error: txError } = await supabase.from("transactions").insert({

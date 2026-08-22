@@ -32,6 +32,16 @@ export function parseMoneyInput(raw: string): number | null {
   if (!trimmed) return null;
 
   let normalized = trimmed.replace(/[^\d,.-]/g, "");
+
+  // Bug real encontrado na Etapa 12 (QA), via teste unitário: uma entrada sem nenhum
+  // dígito ("abc", "R$", "N/A") sobrevive ao replace acima como string vazia, e
+  // `Number("")` é 0 em JavaScript (não NaN) — sem essa guarda, `parseMoneyInput`
+  // devolvia 0 silenciosamente pra qualquer lixo digitado, em vez de null. Isso deixava
+  // passar valores inválidos sem erro de validação em `moneySchema`/`optionalMoneySchema`
+  // (ex.: saldo inicial de conta, limite de orçamento) — o campo virava "R$ 0,00" sem
+  // avisar o usuário que o valor não foi entendido.
+  if (!/\d/.test(normalized)) return null;
+
   const hasComma = normalized.includes(",");
   const hasDot = normalized.includes(".");
 

@@ -445,14 +445,16 @@ export async function confirmImport(_prevState: ActionState, formData: FormData)
 
     const type: Database["public"]["Enums"]["transaction_type"] = row.amount < 0 ? "expense" : "income";
     const amount = Math.abs(row.amount);
-    const contribution = contributionFor(type, amount);
+    // Fatura: despesa = +valor (aumenta o que se deve). Conta: convenção oposta —
+    // entrada positiva, saída negativa — por isso `-billContribution`.
+    const billContribution = contributionFor(type, amount);
 
     let creditCardBillId: string | null = null;
     if (importRecord.credit_card_id) {
-      creditCardBillId = await applyBillDelta(supabase, householdId, importRecord.credit_card_id, row.date, contribution);
+      creditCardBillId = await applyBillDelta(supabase, householdId, importRecord.credit_card_id, row.date, billContribution);
     }
     if (importRecord.account_id) {
-      await applyAccountDelta(supabase, importRecord.account_id, contribution);
+      await applyAccountDelta(supabase, importRecord.account_id, -billContribution);
     }
 
     const { error: insertError } = await supabase.from("transactions").insert({

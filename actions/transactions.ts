@@ -12,18 +12,26 @@ import type { Database } from "@/types/database";
 
 type TransactionType = Database["public"]["Enums"]["transaction_type"];
 
-/** Reverte (ou aplica) os efeitos colaterais de uma transação existente em conta/fatura. */
+/**
+ * Reverte os efeitos colaterais de uma transação existente em conta/fatura.
+ *
+ * Convenções de sinal (não são a mesma!):
+ * - Fatura de cartão (`contributionFor`): despesa = +valor (aumenta o que se deve), receita/estorno = -valor.
+ * - Conta (`adjust_account_balance`): positivo = entrada, negativo = saída — o OPOSTO da fatura.
+ *   Por isso a conta usa `-billContribution` na aplicação original (ver createTransaction/updateTransaction),
+ *   e aqui, para reverter, usamos `+billContribution` na conta e `-billContribution` na fatura.
+ */
 async function reverseSideEffects(
   supabase: SupabaseClient<Database>,
   householdId: string,
   row: { type: TransactionType; amount: number; transaction_date: string; account_id: string | null; credit_card_id: string | null },
 ): Promise<void> {
-  const delta = -contributionFor(row.type, Number(row.amount));
+  const billContribution = contributionFor(row.type, Number(row.amount));
   if (row.account_id) {
-    await applyAccountDelta(supabase, row.account_id, delta);
+    await applyAccountDelta(supabase, row.account_id, billContribution);
   }
   if (row.credit_card_id) {
-    await applyBillDelta(supabase, householdId, row.credit_card_id, row.transaction_date, delta);
+    await applyBillDelta(supabase, householdId, row.credit_card_id, row.transaction_date, -billContribution);
   }
 }
 
@@ -70,7 +78,9 @@ export async function createTransaction(
   const d = parsed.data;
   const accountId = d.paymentMethod === "account" ? d.accountId : undefined;
   const creditCardId = d.paymentMethod === "credit_card" ? d.creditCardId : undefined;
-  const contribution = contributionFor(d.type, d.amount);
+  // Fatura: despesa = +valor (aumenta o que se deve). Conta: convenção oposta —
+  // entrada positiva, saída negativa — por isso `-billContribution`.
+  const billContribution = contributionFor(d.type, d.amount);
 
   let creditCardBillId: string | null = null;
   if (creditCardId) {
@@ -79,11 +89,11 @@ export async function createTransaction(
       householdId,
       creditCardId,
       d.transactionDate,
-      contribution,
+      billContribution,
     );
   }
   if (accountId) {
-    await applyAccountDelta(supabase, accountId, contribution);
+    await applyAccountDelta(supabase, accountId, -billContribution);
   }
 
   const { error } = await supabase.from("transactions").insert({
@@ -144,7 +154,9 @@ export async function updateTransaction(
   const d = parsed.data;
   const accountId = d.paymentMethod === "account" ? d.accountId : undefined;
   const creditCardId = d.paymentMethod === "credit_card" ? d.creditCardId : undefined;
-  const contribution = contributionFor(d.type, d.amount);
+  // Fatura: despesa = +valor (aumenta o que se deve). Conta: convenção oposta —
+  // entrada positiva, saída negativa — por isso `-billContribution`.
+  const billContribution = contributionFor(d.type, d.amount);
 
   let creditCardBillId: string | null = null;
   if (creditCardId) {
@@ -153,11 +165,11 @@ export async function updateTransaction(
       householdId,
       creditCardId,
       d.transactionDate,
-      contribution,
+      billContribution,
     );
   }
   if (accountId) {
-    await applyAccountDelta(supabase, accountId, contribution);
+    await applyAccountDelta(supabase, accountId, -billContribution);
   }
 
   const { error } = await supabase
