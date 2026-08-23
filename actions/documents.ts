@@ -11,6 +11,7 @@ import {
   isAcceptedDocumentFile,
 } from "@/lib/documents/mime";
 import { sha256OfBuffer } from "@/lib/documents/hash";
+import { triggerDocumentProcessing } from "@/lib/documents/processing/trigger";
 
 /**
  * Fase 2 — Macrofase 2 (Prompt Mestre §21 / ERD §"Ingestão"). DocumentIngestionService:
@@ -143,6 +144,13 @@ export async function uploadDocuments(
     }
 
     results.push({ fileName: file.name, status: "uploaded", documentId });
+  }
+
+  const uploadedIds = results
+    .filter((r): r is DocumentUploadItemResult & { documentId: string } => r.status === "uploaded" && !!r.documentId)
+    .map((r) => r.documentId);
+  if (uploadedIds.length > 0) {
+    triggerDocumentProcessing(uploadedIds);
   }
 
   revalidatePath("/documentos");

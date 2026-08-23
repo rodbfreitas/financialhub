@@ -5,6 +5,8 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId } from "@/lib/supabase/household";
 import { DocumentStatusBadge } from "@/components/documents/document-status-badge";
+import { ProcessingStatusPoller } from "@/components/documents/processing-status-poller";
+import { DocumentEventsList, type DocumentEventRow } from "@/components/documents/document-events-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -48,7 +50,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
   const { data: doc } = await supabase
     .from("financial_documents")
     .select(
-      "id, original_filename, mime_type, file_size_bytes, document_type, status, storage_bucket, storage_path, created_at, profiles(name)",
+      "id, original_filename, mime_type, file_size_bytes, document_type, status, storage_bucket, storage_path, created_at, institution_name, profiles(name)",
     )
     .eq("id", id)
     .eq("household_id", householdId)
@@ -56,9 +58,30 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
 
   if (!doc) notFound();
 
-  const { data: signed } = await supabase.storage
-    .from(doc.storage_bucket)
-    .createSignedUrl(doc.storage_path, 60 * 5);
+  const isProcessingState = doc.status === "received" || doc.status === "processing";
+  const showEvents = doc.status === "ready_for_review" || doc.status === "reviewed" || doc.status === "partial";
+
+  const [{ data: signed }, { data: latestRun }, { data: events }] = await Promise.all([
+    supabase.storage.from(doc.storage_bucket).createSignedUrl(doc.storage_path, 60 * 5),
+    isProcessingState || doc.status === "failed" || doc.status === "partial"
+      ? supabase
+          .from("document_processing_runs")
+          .select("status, error_code, error_detail, metrics")
+          .eq("document_id", id)
+          .order("run_number", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    showEvents
+      ? supabase
+          .from("extracted_financial_events")
+          .select(
+            "id, raw_description, interpreted_financial_events(event_type, amount, effective_date, merchant_normalized, interpretation_confidence, installment_current, installment_total, is_current)",
+          )
+          .eq("document_id", id)
+          .order("source_event_index", { ascending: true })
+      : Promise.resolve({ data: null }),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -110,14 +133,48 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         </div>
       ) : null}
 
-      {doc.status === "received" ? (
+      {isProcessingState ? (
+        <>
+          <ProcessingStatusPoller />
+          <Card>
+            <CardContent className="p-5 text-sm text-muted-foreground">
+              {doc.status === "received"
+                ? "Documento recebido e guardado com segurança. A leitura automática vai começar em instantes."
+                : "Lendo o documento e identificando lançamentos automaticamente. Isso costuma levar poucos segundos — esta página se atualiza sozinha."}
+            </CardContent>
+          </Card>
+        </>
+      ) : null}
+
+      {doc.status === "failed" ? (
         <Card>
           <CardContent className="p-5 text-sm text-muted-foreground">
-            Documento recebido e guardado com segurança. A leitura automática (extração de eventos
-            financeiros) é a próxima etapa do desenvolvimento — ainda não roda para este documento.
+            Não conseguimos processar este documento automaticamente
+            {latestRun?.error_code === "unsupported_type" ? " (formato de arquivo sem suporte)." : "."} Você ainda
+            pode abrir o arquivo original acima e lançar os valores manualmente.
           </CardContent>
         </Card>
       ) : null}
+
+      {doc.status === "partial" && latestRun?.error_code === "no_ocr_provider" ? (
+        <Card>
+          <CardContent className="p-5 text-sm text-muted-foreground">
+            Este documento é uma imagem — a leitura automática de imagens ainda não está disponível neste
+            momento. Você pode abrir o arquivo original acima e conferir o conteúdo manualmente.
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {doc.status === "partial" && latestRun?.error_code !== "no_ocr_provider" ? (
+        <Card>
+          <CardContent className="p-5 text-sm text-muted-foreground">
+            Conseguimos ler o documento, mas não encontramos lançamentos com data e valor reconhecíveis
+            automaticamente. Você pode abrir o arquivo original acima e conferir o conteúdo manualmente.
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {showEvents ? <DocumentEventsList events={(events ?? []) as DocumentEventRow[]} /> : null}
     </div>
   );
 }
