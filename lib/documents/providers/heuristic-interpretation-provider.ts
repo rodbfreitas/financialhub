@@ -14,9 +14,16 @@ import {
   parseDateMatch,
 } from "@/lib/documents/br-financial-format";
 import { isSummaryLine } from "@/lib/documents/document-header";
+import { extractSingleEventCandidate } from "./single-event-extraction";
 
 type DocumentType = Database["public"]["Enums"]["document_type"];
 type FinancialEventType = Database["public"]["Enums"]["financial_event_type"];
+
+const SINGLE_EVENT_DOCUMENT_TYPES: readonly DocumentType[] = [
+  "comprovante_pagamento",
+  "comprovante_pix",
+  "comprovante_transferencia",
+];
 
 /**
  * Implementação heurística (regex + palavras-chave, sem IA/LLM) de
@@ -30,10 +37,29 @@ export class HeuristicInterpretationProvider implements FinancialInterpretationP
   readonly name = "heuristic-br-regex";
 
   classify(input: { documentType: DocumentType; pages: ExtractedPage[] }): ClassifiedEventCandidate[] {
+    // Macrofase 6 (PRD 2.0 §9.4): um boleto é uma OBRIGAÇÃO, não um pagamento — nunca
+    // gera candidato a lançamento sozinho. O resumo (beneficiário/valor/vencimento/
+    // linha digitável) fica só em `document-header.ts`.
+    if (input.documentType === "boleto") return [];
+
+    // Macrofase 6 (PRD 2.0 §9.5): comprovantes normalmente são um formulário de
+    // rótulo/valor em linhas separadas, não uma linha tabular com data+valor juntos
+    // — o documento inteiro é UM evento. Só cai pro scanner linha-a-linha abaixo se
+    // essa extração não achar nada (ex.: comprovante em formato tabular incomum).
+    if (SINGLE_EVENT_DOCUMENT_TYPES.includes(input.documentType)) {
+      const fullText = input.pages.map((p) => p.rawText).join("\n");
+      const singleEvent = extractSingleEventCandidate(fullText);
+      if (singleEvent) return [singleEvent];
+    }
+
+    return this.classifyTabularLines(input.pages);
+  }
+
+  private classifyTabularLines(pages: ExtractedPage[]): ClassifiedEventCandidate[] {
     const candidates: ClassifiedEventCandidate[] = [];
     let eventIndex = 0;
 
-    for (const page of input.pages) {
+    for (const page of pages) {
       for (const line of page.lines) {
         // Macrofase 5 (PRD 2.0 §9.3): "saldo inicial e saldo final como contexto,
         // nunca como transação" — vale também pro total/pagamento mínimo de fatura.

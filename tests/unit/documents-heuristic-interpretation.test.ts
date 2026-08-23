@@ -62,6 +62,26 @@ describe("HeuristicInterpretationProvider.classify", () => {
     expect(candidates).toHaveLength(1);
     expect(candidates[0].rawDescription).toContain("PADARIA SILVA");
   });
+
+  it("nunca gera candidato pra boleto (é obrigação, não pagamento — Macrofase 6)", () => {
+    const pages = [pageWithLines(["Vencimento 20/03/2026", "Valor R$ 189,90", "Beneficiário: Cia de Agua"])];
+    expect(provider.classify({ documentType: "boleto", pages })).toEqual([]);
+  });
+
+  it("usa extração de evento único pra comprovantes em formato de formulário", () => {
+    const pages = [pageWithLines(["Comprovante PIX", "Valor: R$ 150,00", "Data: 15/03/2026", "Para: João Silva"])];
+    const candidates = provider.classify({ documentType: "comprovante_pix", pages });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].parsedAmount).toBeCloseTo(150);
+    expect(candidates[0].rawDescription).toBe("João Silva");
+  });
+
+  it("cai pro scanner linha-a-linha quando o comprovante não bate no formato de formulário", () => {
+    const pages = [pageWithLines(["15/03/2026 TRANSFERENCIA RECEBIDA 300,00"])];
+    const candidates = provider.classify({ documentType: "comprovante_transferencia", pages });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].parsedAmount).toBeCloseTo(300);
+  });
 });
 
 describe("HeuristicInterpretationProvider.interpret", () => {

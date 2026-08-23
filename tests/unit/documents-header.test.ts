@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractDocumentHeader, isSummaryLine } from "@/lib/documents/document-header";
+import { extractDocumentHeader, isSummaryLine, findValueAfterKeyword } from "@/lib/documents/document-header";
 
 describe("isSummaryLine", () => {
   it("reconhece linhas de total/saldo/limite como resumo, não lançamento", () => {
@@ -77,8 +77,54 @@ describe("extractDocumentHeader — extrato_bancario", () => {
   });
 });
 
+describe("extractDocumentHeader — boleto", () => {
+  it("extrai beneficiário, vencimento, valor e linha digitável", () => {
+    const text = [
+      "BOLETO BANCARIO",
+      "Beneficiário: Companhia de Agua e Esgoto",
+      "Vencimento 20/03/2026",
+      "Valor do documento R$ 189,90",
+      "34191.79001 01043.510047 91020.150008 1 84410026000150",
+    ].join("\n");
+
+    const facts = extractDocumentHeader("boleto", text);
+    expect(facts).toEqual({
+      kind: "boleto",
+      beneficiary: "Companhia de Agua e Esgoto",
+      dueDate: "2026-03-20",
+      amount: 189.9,
+      digitableLine: "34191790010104351004791020150008184410026000150",
+    });
+  });
+
+  it("retorna campos null quando nao encontra (nunca inventa)", () => {
+    const facts = extractDocumentHeader("boleto", "documento sem nenhum campo reconhecivel");
+    expect(facts).toEqual({
+      kind: "boleto",
+      beneficiary: null,
+      dueDate: null,
+      amount: null,
+      digitableLine: null,
+    });
+  });
+});
+
 describe("extractDocumentHeader — outros tipos de documento", () => {
-  it("retorna null para tipos sem resumo estruturado definido (ex.: boleto)", () => {
-    expect(extractDocumentHeader("boleto", "qualquer texto")).toBeNull();
+  it("retorna null para tipos sem resumo estruturado definido (ex.: comprovante genérico)", () => {
+    expect(extractDocumentHeader("documento_bancario_generico", "qualquer texto")).toBeNull();
+  });
+});
+
+describe("findValueAfterKeyword", () => {
+  it("acha o valor na mesma linha, depois dos dois-pontos", () => {
+    expect(findValueAfterKeyword("Beneficiário: João Silva", /benefici[aá]rio/)).toBe("João Silva");
+  });
+
+  it("acha o valor na linha seguinte quando o rótulo está sozinho", () => {
+    expect(findValueAfterKeyword("Beneficiário\nJoão Silva", /benefici[aá]rio/)).toBe("João Silva");
+  });
+
+  it("retorna null quando o rótulo não aparece", () => {
+    expect(findValueAfterKeyword("Nenhum rótulo reconhecido aqui", /benefici[aá]rio/)).toBeNull();
   });
 });
