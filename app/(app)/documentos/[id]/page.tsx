@@ -7,6 +7,8 @@ import { getActiveHouseholdId } from "@/lib/supabase/household";
 import { DocumentStatusBadge } from "@/components/documents/document-status-badge";
 import { ProcessingStatusPoller } from "@/components/documents/processing-status-poller";
 import { DocumentEventsList, type DocumentEventRow } from "@/components/documents/document-events-list";
+import { DocumentHeaderSummary } from "@/components/documents/document-header-summary";
+import type { DocumentHeaderFacts } from "@/lib/documents/document-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -63,15 +65,15 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
 
   const [{ data: signed }, { data: latestRun }, { data: events }] = await Promise.all([
     supabase.storage.from(doc.storage_bucket).createSignedUrl(doc.storage_path, 60 * 5),
-    isProcessingState || doc.status === "failed" || doc.status === "partial"
-      ? supabase
-          .from("document_processing_runs")
-          .select("status, error_code, error_detail, metrics")
-          .eq("document_id", id)
-          .order("run_number", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
+    // Sempre busca a última run — além de dar contexto pra failed/partial, é dela
+    // que vem o artefato de resumo do documento (Macrofase 5) quando disponível.
+    supabase
+      .from("document_processing_runs")
+      .select("id, status, error_code, error_detail, metrics")
+      .eq("document_id", id)
+      .order("run_number", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     showEvents
       ? supabase
           .from("extracted_financial_events")
@@ -82,6 +84,16 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
           .order("source_event_index", { ascending: true })
       : Promise.resolve({ data: null }),
   ]);
+
+  const { data: headerArtifact } = latestRun
+    ? await supabase
+        .from("processing_artifacts")
+        .select("content")
+        .eq("run_id", latestRun.id)
+        .eq("artifact_type", "document_header")
+        .maybeSingle()
+    : { data: null };
+  const headerFacts = (headerArtifact?.content ?? null) as DocumentHeaderFacts | null;
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -173,6 +185,8 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
           </CardContent>
         </Card>
       ) : null}
+
+      {headerFacts ? <DocumentHeaderSummary facts={headerFacts} /> : null}
 
       {showEvents ? <DocumentEventsList events={(events ?? []) as DocumentEventRow[]} /> : null}
     </div>

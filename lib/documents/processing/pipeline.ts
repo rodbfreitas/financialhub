@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { detectInstitution } from "@/lib/documents/institution-detection";
+import { extractDocumentHeader } from "@/lib/documents/document-header";
 import { pickExtractionProvider, getInterpretationProvider } from "@/lib/documents/providers/registry";
 import type { Database, Json } from "@/types/database";
 
@@ -251,9 +252,10 @@ async function processRun(input: {
     if (!interpretedError) interpretedCount++;
   }
 
+  const fullText = extraction.pages.map((p) => p.rawText).join("\n");
+
   // Detecção de instituição — só preenche o que ainda está vazio, nunca sobrescreve.
   if (!doc.institution_name) {
-    const fullText = extraction.pages.map((p) => p.rawText).join("\n");
     const institution = detectInstitution(fullText);
     if (institution) {
       await supabase.from("extracted_entities").insert({
@@ -269,10 +271,25 @@ async function processRun(input: {
     }
   }
 
+  // Macrofase 5 (PRD 2.0 §9.1/§9.3) — resumo por tipo de documento (vencimento,
+  // total, pagamento mínimo de fatura; saldo inicial/final de extrato). Persistido
+  // como artefato da run (nunca como lançamento) pra a tela de detalhe mostrar como
+  // contexto separado dos lançamentos identificados.
+  const headerFacts = extractDocumentHeader(doc.document_type, fullText);
+  if (headerFacts) {
+    await supabase.from("processing_artifacts").insert({
+      id: randomUUID(),
+      run_id: runId,
+      artifact_type: "document_header",
+      content: headerFacts,
+    });
+  }
+
   const metrics = {
     pageCount: extraction.pages.length,
     candidateCount: candidates.length,
     interpretedCount,
+    headerDetected: headerFacts !== null,
   };
 
   const documentStatus: FinancialDocumentStatus = candidates.length === 0 ? "partial" : "ready_for_review";

@@ -5,14 +5,18 @@ import type {
   FinancialInterpretationProvider,
   InterpretedEventDraft,
 } from "./interpretation-provider";
+import {
+  DATE_RE,
+  MONEY_RE,
+  normalize,
+  parseAmountMatch,
+  inferDirectionMatch,
+  parseDateMatch,
+} from "@/lib/documents/br-financial-format";
+import { isSummaryLine } from "@/lib/documents/document-header";
 
 type DocumentType = Database["public"]["Enums"]["document_type"];
 type FinancialEventType = Database["public"]["Enums"]["financial_event_type"];
-
-const DATE_RE = /\b(\d{2})\/(\d{2})\/(\d{4}|\d{2})\b/;
-// Valor em formato brasileiro (1.234,56 / R$ 45,90), com sinal ou sufixo D/C opcionais
-// (extratos bancários costumam marcar débito/crédito assim: "150,00 D").
-const MONEY_RE = /(-)?\s?R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})\s?(-)?\s?\b([DC])?\b/gi;
 
 /**
  * Implementação heurística (regex + palavras-chave, sem IA/LLM) de
@@ -31,6 +35,12 @@ export class HeuristicInterpretationProvider implements FinancialInterpretationP
 
     for (const page of input.pages) {
       for (const line of page.lines) {
+        // Macrofase 5 (PRD 2.0 §9.3): "saldo inicial e saldo final como contexto,
+        // nunca como transação" — vale também pro total/pagamento mínimo de fatura.
+        // Essas linhas viram fatos de resumo (`document-header.ts`), não candidatos
+        // a lançamento individual.
+        if (isSummaryLine(line.text)) continue;
+
         const dateMatch = line.text.match(DATE_RE);
         const moneyMatches = [...line.text.matchAll(MONEY_RE)].filter((m) => m[2]);
         if (!dateMatch || moneyMatches.length === 0) continue;
@@ -38,11 +48,11 @@ export class HeuristicInterpretationProvider implements FinancialInterpretationP
         // A última ocorrência de valor na linha costuma ser o total do lançamento
         // (descrição geralmente vem antes, em extratos/faturas em formato tabular).
         const moneyMatch = moneyMatches[moneyMatches.length - 1];
-        const parsedAmount = parseAmount(moneyMatch);
-        const parsedDate = parseDate(dateMatch);
+        const parsedAmount = parseAmountMatch(moneyMatch);
+        const parsedDate = parseDateMatch(dateMatch);
         if (parsedAmount === null && parsedDate === null) continue;
 
-        const direction = inferDirection(moneyMatch);
+        const direction = inferDirectionMatch(moneyMatch);
         const rawDescription = line.text
           .replace(dateMatch[0], " ")
           .replace(moneyMatch[0], " ")
@@ -168,37 +178,4 @@ export class HeuristicInterpretationProvider implements FinancialInterpretationP
       reasonCodes,
     };
   }
-}
-
-function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function parseAmount(match: RegExpMatchArray): number | null {
-  const [, leadingMinus, digits, trailingMinus] = match;
-  if (!digits) return null;
-  const normalized = Number(digits.replace(/\./g, "").replace(",", "."));
-  if (!Number.isFinite(normalized)) return null;
-  const negative = Boolean(leadingMinus) || Boolean(trailingMinus);
-  return negative ? -normalized : normalized;
-}
-
-function inferDirection(match: RegExpMatchArray): "debit" | "credit" | null {
-  const [, leadingMinus, , trailingMinus, letter] = match;
-  if (letter) return letter.toUpperCase() === "D" ? "debit" : "credit";
-  if (leadingMinus || trailingMinus) return "debit";
-  return null;
-}
-
-function parseDate(match: RegExpMatchArray): string | null {
-  const [, dd, mm, yy] = match;
-  const day = Number(dd);
-  const month = Number(mm);
-  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
-  const year = yy.length === 2 ? 2000 + Number(yy) : Number(yy);
-  if (year < 2000 || year > 2100) return null;
-  return `${year}-${mm}-${dd}`;
 }

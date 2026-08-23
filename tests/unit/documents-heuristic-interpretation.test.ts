@@ -48,6 +48,20 @@ describe("HeuristicInterpretationProvider.classify", () => {
     const candidates = provider.classify({ documentType: "extrato_bancario", pages });
     expect(candidates[0].direction).toBe("debit");
   });
+
+  it("nunca trata total/saldo/pagamento mínimo como lançamento individual (Macrofase 5)", () => {
+    const pages = [
+      pageWithLines([
+        "15/03/2026 PADARIA SILVA 45,90",
+        "Total desta fatura R$ 1.234,56",
+        "Pagamento mínimo R$ 150,00",
+        "Saldo final 3.400,12",
+      ]),
+    ];
+    const candidates = provider.classify({ documentType: "fatura_cartao", pages });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].rawDescription).toContain("PADARIA SILVA");
+  });
 });
 
 describe("HeuristicInterpretationProvider.interpret", () => {
