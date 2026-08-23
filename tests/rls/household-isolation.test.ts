@@ -198,4 +198,112 @@ describe.skipIf(!hasCreds)("RLS: isolamento entre households", () => {
     const { data: current } = await admin.from("households").select("name").eq("id", b.householdId).single();
     expect(current?.name).toBe("RLS Test Household B");
   });
+
+  describe("RLS: tabelas de Financial Document Intelligence (Fase 2 / migration 022)", () => {
+    // Cadeia mínima real (não mockada) no household B: financial_documents →
+    // document_processing_runs → extracted_financial_events → interpreted_financial_events.
+    // Cascateia sozinha a partir do `households` delete no afterAll externo (todas as
+    // FKs até households são ON DELETE CASCADE), então não precisa de teardown próprio.
+    let documentId: string;
+    let interpretedEventId: string;
+
+    beforeAll(async () => {
+      const sha256 = `rls-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      const { data: doc, error: docErr } = await admin
+        .from("financial_documents")
+        .insert({
+          household_id: b.householdId,
+          uploaded_by: b.userId,
+          storage_bucket: "financial-documents",
+          storage_path: `${b.householdId}/documents/rls-test/fatura.pdf`,
+          original_filename: "fatura.pdf",
+          mime_type: "application/pdf",
+          file_size_bytes: 1024,
+          sha256,
+          status: "received",
+        })
+        .select("id")
+        .single();
+      if (docErr || !doc) throw new Error(`Falha ao criar financial_documents (RLS setup): ${docErr?.message}`);
+      documentId = doc.id;
+
+      const { data: run, error: runErr } = await admin
+        .from("document_processing_runs")
+        .insert({ document_id: documentId, household_id: b.householdId, status: "succeeded" })
+        .select("id")
+        .single();
+      if (runErr || !run) throw new Error(`Falha ao criar document_processing_runs (RLS setup): ${runErr?.message}`);
+
+      const { data: extracted, error: extractedErr } = await admin
+        .from("extracted_financial_events")
+        .insert({
+          run_id: run.id,
+          document_id: documentId,
+          household_id: b.householdId,
+          source_event_index: 0,
+          raw_description: "Compra teste RLS",
+          raw_amount: "10,00",
+          parsed_amount: 10,
+        })
+        .select("id")
+        .single();
+      if (extractedErr || !extracted) {
+        throw new Error(`Falha ao criar extracted_financial_events (RLS setup): ${extractedErr?.message}`);
+      }
+
+      const { data: interpreted, error: interpretedErr } = await admin
+        .from("interpreted_financial_events")
+        .insert({ extracted_event_id: extracted.id, event_type: "purchase", amount: 10 })
+        .select("id")
+        .single();
+      if (interpretedErr || !interpreted) {
+        throw new Error(`Falha ao criar interpreted_financial_events (RLS setup): ${interpretedErr?.message}`);
+      }
+      interpretedEventId = interpreted.id;
+    }, 30_000);
+
+    it("usuário A não enxerga financial_documents do household B (tabela com household_id direto)", async () => {
+      const { data, error } = await a.userClient.from("financial_documents").select("id").eq("id", documentId);
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
+    });
+
+    it("usuário B enxerga o próprio financial_documents", async () => {
+      const { data, error } = await b.userClient.from("financial_documents").select("id").eq("id", documentId);
+      expect(error).toBeNull();
+      expect(data).toEqual([{ id: documentId }]);
+    });
+
+    it("usuário A não consegue inserir financial_documents no household B (insert bloqueado)", async () => {
+      const { error } = await a.userClient.from("financial_documents").insert({
+        household_id: b.householdId,
+        storage_bucket: "financial-documents",
+        storage_path: `${b.householdId}/documents/malicious/x.pdf`,
+        original_filename: "malicioso.pdf",
+        mime_type: "application/pdf",
+        file_size_bytes: 1,
+        sha256: `malicious-${Date.now()}`,
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("usuário A não enxerga interpreted_financial_events do household B (isolamento via subquery de 2 saltos)", async () => {
+      const { data, error } = await a.userClient
+        .from("interpreted_financial_events")
+        .select("id")
+        .eq("id", interpretedEventId);
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
+    });
+
+    it("usuário B enxerga o próprio interpreted_financial_events", async () => {
+      const { data, error } = await b.userClient
+        .from("interpreted_financial_events")
+        .select("id")
+        .eq("id", interpretedEventId);
+      expect(error).toBeNull();
+      expect(data).toEqual([{ id: interpretedEventId }]);
+    });
+  });
 });

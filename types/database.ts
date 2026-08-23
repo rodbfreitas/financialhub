@@ -613,6 +613,220 @@ export type Database = {
           },
         ]
       }
+      document_event_evidence: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          interpreted_event_id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          interpreted_event_id: string
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          interpreted_event_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_event_evidence_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "financial_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_event_evidence_interpreted_event_id_fkey"
+            columns: ["interpreted_event_id"]
+            isOneToOne: false
+            referencedRelation: "interpreted_financial_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_pages: {
+        Row: {
+          created_at: string
+          height: number | null
+          id: string
+          page_number: number
+          raw_text: string | null
+          run_id: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          page_number: number
+          raw_text?: string | null
+          run_id: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          page_number?: number
+          raw_text?: string | null
+          run_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_pages_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "document_processing_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_processing_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          document_id: string
+          error_code: string | null
+          error_detail: Json | null
+          extractor_model: string | null
+          extractor_provider: string | null
+          household_id: string
+          id: string
+          interpreter_model: string | null
+          interpreter_provider: string | null
+          metrics: Json | null
+          pipeline_version: string
+          run_number: number
+          started_at: string | null
+          status: Database["public"]["Enums"]["document_processing_run_status"]
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          document_id: string
+          error_code?: string | null
+          error_detail?: Json | null
+          extractor_model?: string | null
+          extractor_provider?: string | null
+          household_id: string
+          id?: string
+          interpreter_model?: string | null
+          interpreter_provider?: string | null
+          metrics?: Json | null
+          pipeline_version?: string
+          run_number?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["document_processing_run_status"]
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          document_id?: string
+          error_code?: string | null
+          error_detail?: Json | null
+          extractor_model?: string | null
+          extractor_provider?: string | null
+          household_id?: string
+          id?: string
+          interpreter_model?: string | null
+          interpreter_provider?: string | null
+          metrics?: Json | null
+          pipeline_version?: string
+          run_number?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["document_processing_run_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_processing_runs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "financial_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_processing_runs_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_review_decisions: {
+        Row: {
+          created_at: string
+          decided_by: string | null
+          decision_action: string
+          document_id: string | null
+          household_id: string
+          id: string
+          interpreted_event_id: string | null
+          notes: string | null
+          reconciliation_candidate_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          decided_by?: string | null
+          decision_action: string
+          document_id?: string | null
+          household_id: string
+          id?: string
+          interpreted_event_id?: string | null
+          notes?: string | null
+          reconciliation_candidate_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          decided_by?: string | null
+          decision_action?: string
+          document_id?: string | null
+          household_id?: string
+          id?: string
+          interpreted_event_id?: string | null
+          notes?: string | null
+          reconciliation_candidate_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_review_decisions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "financial_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_review_decisions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_review_decisions_interpreted_event_id_fkey"
+            columns: ["interpreted_event_id"]
+            isOneToOne: false
+            referencedRelation: "interpreted_financial_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_review_decisions_reconciliation_candidate_id_fkey"
+            columns: ["reconciliation_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliation_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_accounts: {
         Row: {
           bank_connection_id: string
@@ -692,6 +906,265 @@ export type Database = {
           },
           {
             foreignKeyName: "external_transactions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      extracted_entities: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          document_id: string
+          entity_type: Database["public"]["Enums"]["extracted_entity_type"]
+          id: string
+          metadata: Json | null
+          normalized_value: string | null
+          raw_value: string
+          run_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          document_id: string
+          entity_type: Database["public"]["Enums"]["extracted_entity_type"]
+          id?: string
+          metadata?: Json | null
+          normalized_value?: string | null
+          raw_value: string
+          run_id: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          document_id?: string
+          entity_type?: Database["public"]["Enums"]["extracted_entity_type"]
+          id?: string
+          metadata?: Json | null
+          normalized_value?: string | null
+          raw_value?: string
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extracted_entities_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "financial_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extracted_entities_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "document_processing_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      extracted_financial_events: {
+        Row: {
+          created_at: string
+          direction: string | null
+          document_id: string
+          extraction_confidence: number | null
+          household_id: string
+          id: string
+          parsed_amount: number | null
+          parsed_date: string | null
+          raw_amount: string | null
+          raw_date: string | null
+          raw_description: string | null
+          raw_payload: Json | null
+          run_id: string
+          source_bbox: Json | null
+          source_event_index: number
+          source_page: number | null
+        }
+        Insert: {
+          created_at?: string
+          direction?: string | null
+          document_id: string
+          extraction_confidence?: number | null
+          household_id: string
+          id?: string
+          parsed_amount?: number | null
+          parsed_date?: string | null
+          raw_amount?: string | null
+          raw_date?: string | null
+          raw_description?: string | null
+          raw_payload?: Json | null
+          run_id: string
+          source_bbox?: Json | null
+          source_event_index: number
+          source_page?: number | null
+        }
+        Update: {
+          created_at?: string
+          direction?: string | null
+          document_id?: string
+          extraction_confidence?: number | null
+          household_id?: string
+          id?: string
+          parsed_amount?: number | null
+          parsed_date?: string | null
+          raw_amount?: string | null
+          raw_date?: string | null
+          raw_description?: string | null
+          raw_payload?: Json | null
+          run_id?: string
+          source_bbox?: Json | null
+          source_event_index?: number
+          source_page?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extracted_financial_events_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "financial_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extracted_financial_events_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extracted_financial_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "document_processing_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_documents: {
+        Row: {
+          created_at: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          file_size_bytes: number
+          household_id: string
+          id: string
+          import_id: string | null
+          institution_name: string | null
+          mime_type: string
+          original_filename: string
+          profile_id: string | null
+          sha256: string
+          status: Database["public"]["Enums"]["financial_document_status"]
+          storage_bucket: string
+          storage_path: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["document_type"]
+          file_size_bytes: number
+          household_id: string
+          id?: string
+          import_id?: string | null
+          institution_name?: string | null
+          mime_type: string
+          original_filename: string
+          profile_id?: string | null
+          sha256: string
+          status?: Database["public"]["Enums"]["financial_document_status"]
+          storage_bucket?: string
+          storage_path: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["document_type"]
+          file_size_bytes?: number
+          household_id?: string
+          id?: string
+          import_id?: string | null
+          institution_name?: string | null
+          mime_type?: string
+          original_filename?: string
+          profile_id?: string | null
+          sha256?: string
+          status?: Database["public"]["Enums"]["financial_document_status"]
+          storage_bucket?: string
+          storage_path?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_documents_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_documents_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_documents_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_event_relations: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          household_id: string
+          id: string
+          metadata: Json | null
+          relation_type: Database["public"]["Enums"]["reconciliation_relation_type"]
+          source_entity_id: string
+          source_entity_type: string
+          target_entity_id: string
+          target_entity_type: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          household_id: string
+          id?: string
+          metadata?: Json | null
+          relation_type: Database["public"]["Enums"]["reconciliation_relation_type"]
+          source_entity_id: string
+          source_entity_type: string
+          target_entity_id: string
+          target_entity_type: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          household_id?: string
+          id?: string
+          metadata?: Json | null
+          relation_type?: Database["public"]["Enums"]["reconciliation_relation_type"]
+          source_entity_id?: string
+          source_entity_type?: string
+          target_entity_id?: string
+          target_entity_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_event_relations_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
@@ -1114,6 +1587,112 @@ export type Database = {
           },
         ]
       }
+      interpreted_financial_events: {
+        Row: {
+          account_id_suggested: string | null
+          amount: number | null
+          category_id_suggested: string | null
+          created_at: string
+          credit_card_id_suggested: string | null
+          effective_date: string | null
+          event_type: Database["public"]["Enums"]["financial_event_type"]
+          extracted_event_id: string
+          id: string
+          installment_current: number | null
+          installment_total: number | null
+          interpretation_confidence: number | null
+          interpretation_version: number
+          is_current: boolean
+          merchant_normalized: string | null
+          profile_id_suggested: string | null
+          reason_codes: Json | null
+          subcategory_id_suggested: string | null
+        }
+        Insert: {
+          account_id_suggested?: string | null
+          amount?: number | null
+          category_id_suggested?: string | null
+          created_at?: string
+          credit_card_id_suggested?: string | null
+          effective_date?: string | null
+          event_type?: Database["public"]["Enums"]["financial_event_type"]
+          extracted_event_id: string
+          id?: string
+          installment_current?: number | null
+          installment_total?: number | null
+          interpretation_confidence?: number | null
+          interpretation_version?: number
+          is_current?: boolean
+          merchant_normalized?: string | null
+          profile_id_suggested?: string | null
+          reason_codes?: Json | null
+          subcategory_id_suggested?: string | null
+        }
+        Update: {
+          account_id_suggested?: string | null
+          amount?: number | null
+          category_id_suggested?: string | null
+          created_at?: string
+          credit_card_id_suggested?: string | null
+          effective_date?: string | null
+          event_type?: Database["public"]["Enums"]["financial_event_type"]
+          extracted_event_id?: string
+          id?: string
+          installment_current?: number | null
+          installment_total?: number | null
+          interpretation_confidence?: number | null
+          interpretation_version?: number
+          is_current?: boolean
+          merchant_normalized?: string | null
+          profile_id_suggested?: string | null
+          reason_codes?: Json | null
+          subcategory_id_suggested?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interpreted_financial_events_account_id_suggested_fkey"
+            columns: ["account_id_suggested"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interpreted_financial_events_category_id_suggested_fkey"
+            columns: ["category_id_suggested"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interpreted_financial_events_credit_card_id_suggested_fkey"
+            columns: ["credit_card_id_suggested"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interpreted_financial_events_extracted_event_id_fkey"
+            columns: ["extracted_event_id"]
+            isOneToOne: false
+            referencedRelation: "extracted_financial_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interpreted_financial_events_profile_id_suggested_fkey"
+            columns: ["profile_id_suggested"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interpreted_financial_events_subcategory_id_suggested_fkey"
+            columns: ["subcategory_id_suggested"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       liabilities: {
         Row: {
           created_at: string
@@ -1256,6 +1835,41 @@ export type Database = {
           },
         ]
       }
+      processing_artifacts: {
+        Row: {
+          artifact_type: string
+          content: Json | null
+          created_at: string
+          id: string
+          run_id: string
+          storage_path: string | null
+        }
+        Insert: {
+          artifact_type: string
+          content?: Json | null
+          created_at?: string
+          id?: string
+          run_id: string
+          storage_path?: string | null
+        }
+        Update: {
+          artifact_type?: string
+          content?: Json | null
+          created_at?: string
+          id?: string
+          run_id?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_artifacts_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "document_processing_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_access: {
         Row: {
           can_create: boolean
@@ -1340,6 +1954,69 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_candidates: {
+        Row: {
+          candidate_id: string
+          candidate_type: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence: Json | null
+          household_id: string
+          id: string
+          interpreted_event_id: string
+          relation_type_suggested: Database["public"]["Enums"]["reconciliation_relation_type"]
+          score: number
+          score_version: number
+          status: Database["public"]["Enums"]["reconciliation_candidate_status"]
+        }
+        Insert: {
+          candidate_id: string
+          candidate_type: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence?: Json | null
+          household_id: string
+          id?: string
+          interpreted_event_id: string
+          relation_type_suggested: Database["public"]["Enums"]["reconciliation_relation_type"]
+          score: number
+          score_version?: number
+          status?: Database["public"]["Enums"]["reconciliation_candidate_status"]
+        }
+        Update: {
+          candidate_id?: string
+          candidate_type?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence?: Json | null
+          household_id?: string
+          id?: string
+          interpreted_event_id?: string
+          relation_type_suggested?: Database["public"]["Enums"]["reconciliation_relation_type"]
+          score?: number
+          score_version?: number
+          status?: Database["public"]["Enums"]["reconciliation_candidate_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_candidates_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_candidates_interpreted_event_id_fkey"
+            columns: ["interpreted_event_id"]
+            isOneToOne: false
+            referencedRelation: "interpreted_financial_events"
             referencedColumns: ["id"]
           },
         ]
@@ -1604,6 +2281,52 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transaction_evidence_links: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          interpreted_event_id: string | null
+          transaction_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          interpreted_event_id?: string | null
+          transaction_id: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          interpreted_event_id?: string | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_evidence_links_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "financial_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_evidence_links_interpreted_event_id_fkey"
+            columns: ["interpreted_event_id"]
+            isOneToOne: false
+            referencedRelation: "interpreted_financial_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_evidence_links_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -2142,6 +2865,58 @@ export type Database = {
         | "disconnected"
       budget_period_type: "monthly" | "custom"
       credit_card_bill_status: "open" | "closed" | "paid" | "overdue"
+      document_processing_run_status:
+        | "queued"
+        | "running"
+        | "succeeded"
+        | "partial"
+        | "failed"
+        | "cancelled"
+      document_type:
+        | "fatura_cartao"
+        | "extrato_bancario"
+        | "boleto"
+        | "comprovante_pagamento"
+        | "comprovante_pix"
+        | "comprovante_transferencia"
+        | "documento_bancario_generico"
+        | "documento_desconhecido"
+      extracted_entity_type:
+        | "institution"
+        | "merchant"
+        | "person"
+        | "account"
+        | "credit_card"
+        | "bill"
+        | "boleto"
+        | "identifier"
+      financial_document_status:
+        | "received"
+        | "processing"
+        | "ready_for_review"
+        | "reviewed"
+        | "partial"
+        | "failed"
+        | "archived"
+      financial_event_type:
+        | "purchase"
+        | "income"
+        | "payment"
+        | "transfer"
+        | "pix_sent"
+        | "pix_received"
+        | "boleto_payment"
+        | "card_payment"
+        | "refund"
+        | "fee"
+        | "interest"
+        | "penalty"
+        | "yield"
+        | "withdrawal"
+        | "deposit"
+        | "installment"
+        | "direct_debit"
+        | "unknown"
       goal_status: "in_progress" | "completed" | "paused" | "cancelled"
       household_member_status: "invited" | "active" | "suspended"
       household_role: "owner" | "admin" | "member" | "viewer"
@@ -2161,6 +2936,19 @@ export type Database = {
         | "cancelled"
       match_type: "contains" | "equals" | "starts_with" | "regex"
       profile_type: "individual" | "shared"
+      reconciliation_candidate_status:
+        | "pending"
+        | "accepted"
+        | "rejected"
+        | "expired"
+      reconciliation_relation_type:
+        | "DUPLICATE"
+        | "RELATED"
+        | "SETTLEMENT"
+        | "TRANSFER_PAIR"
+        | "REFUND"
+        | "INSTALLMENT"
+        | "BILL_PAYMENT"
       recurrence_frequency:
         | "weekly"
         | "monthly"
@@ -2324,6 +3112,63 @@ export const Constants = {
       ],
       budget_period_type: ["monthly", "custom"],
       credit_card_bill_status: ["open", "closed", "paid", "overdue"],
+      document_processing_run_status: [
+        "queued",
+        "running",
+        "succeeded",
+        "partial",
+        "failed",
+        "cancelled",
+      ],
+      document_type: [
+        "fatura_cartao",
+        "extrato_bancario",
+        "boleto",
+        "comprovante_pagamento",
+        "comprovante_pix",
+        "comprovante_transferencia",
+        "documento_bancario_generico",
+        "documento_desconhecido",
+      ],
+      extracted_entity_type: [
+        "institution",
+        "merchant",
+        "person",
+        "account",
+        "credit_card",
+        "bill",
+        "boleto",
+        "identifier",
+      ],
+      financial_document_status: [
+        "received",
+        "processing",
+        "ready_for_review",
+        "reviewed",
+        "partial",
+        "failed",
+        "archived",
+      ],
+      financial_event_type: [
+        "purchase",
+        "income",
+        "payment",
+        "transfer",
+        "pix_sent",
+        "pix_received",
+        "boleto_payment",
+        "card_payment",
+        "refund",
+        "fee",
+        "interest",
+        "penalty",
+        "yield",
+        "withdrawal",
+        "deposit",
+        "installment",
+        "direct_debit",
+        "unknown",
+      ],
       goal_status: ["in_progress", "completed", "paused", "cancelled"],
       household_member_status: ["invited", "active", "suspended"],
       household_role: ["owner", "admin", "member", "viewer"],
@@ -2345,6 +3190,21 @@ export const Constants = {
       ],
       match_type: ["contains", "equals", "starts_with", "regex"],
       profile_type: ["individual", "shared"],
+      reconciliation_candidate_status: [
+        "pending",
+        "accepted",
+        "rejected",
+        "expired",
+      ],
+      reconciliation_relation_type: [
+        "DUPLICATE",
+        "RELATED",
+        "SETTLEMENT",
+        "TRANSFER_PAIR",
+        "REFUND",
+        "INSTALLMENT",
+        "BILL_PAYMENT",
+      ],
       recurrence_frequency: [
         "weekly",
         "monthly",

@@ -12,6 +12,7 @@ import {
   TrendingUp,
   FileBarChart,
   Upload,
+  FileScan,
   Plug,
   Settings,
 } from "lucide-react";
@@ -27,8 +28,10 @@ export function isNavGroup(item: NavItem): item is NavGroup {
 /**
  * Menu principal — PRD §50 / Design System §4, na ordem exata dos documentos:
  * Visão Geral, Movimentações (Transações/Contas/Cartões/Assinaturas), Planejamento
- * (Orçamento/Metas), Análises (Relatórios/Patrimônio), Importar, Integrações,
- * Configurações.
+ * (Orçamento/Metas), Análises (Relatórios/Patrimônio), Documentos (Fase 2 —
+ * evolução do antigo "Importar", que continua disponível como filho — UX 2.0
+ * §"arquitetura de informação": reaproveita o nav existente, não cria produto
+ * paralelo), Integrações, Configurações.
  */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Visão Geral", href: "/dashboard", icon: LayoutDashboard },
@@ -58,7 +61,14 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Patrimônio", href: "/analises/patrimonio", icon: Wallet },
     ],
   },
-  { label: "Importar", href: "/importar", icon: Upload },
+  {
+    label: "Documentos",
+    icon: Upload,
+    children: [
+      { label: "Enviar documentos", href: "/documentos", icon: FileScan },
+      { label: "Importações (CSV/XLSX/OFX)", href: "/importar", icon: Upload },
+    ],
+  },
   { label: "Integrações", href: "/integracoes", icon: Plug },
   { label: "Configurações", href: "/configuracoes", icon: Settings },
 ];
