@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { detectInstitution } from "@/lib/documents/institution-detection";
 import { extractDocumentHeader } from "@/lib/documents/document-header";
 import { pickExtractionProvider, getInterpretationProvider } from "@/lib/documents/providers/registry";
+import { runReconciliationForEvent } from "@/lib/documents/reconciliation/engine";
 import type { Database, Json } from "@/types/database";
 
 const PIPELINE_VERSION = "1";
@@ -234,8 +235,9 @@ async function processRun(input: {
     }
 
     const draft = interpreter.interpret({ documentType: doc.document_type, candidate });
+    const interpretedEventId = randomUUID();
     const { error: interpretedError } = await supabase.from("interpreted_financial_events").insert({
-      id: randomUUID(),
+      id: interpretedEventId,
       extracted_event_id: extractedEventId,
       event_type: draft.eventType,
       amount: draft.amount,
@@ -249,15 +251,41 @@ async function processRun(input: {
       reason_codes: draft.reasonCodes,
     });
 
-    if (!interpretedError) interpretedCount++;
+    if (!interpretedError) {
+      interpretedCount++;
+
+      // Macrofase 7 (PRD 2.0 §11) — best-effort: uma falha na reconciliação
+      // nunca pode derrubar o processamento do documento em si, então qualquer
+      // erro aqui só é logado, nunca propagado pro catch da run inteira.
+      try {
+        await runReconciliationForEvent(supabase, {
+          interpretedEventId,
+          householdId: doc.household_id,
+          documentId: doc.id,
+          eventType: draft.eventType,
+          amount: draft.amount,
+          effectiveDate: draft.effectiveDate,
+          merchantNormalized: draft.merchantNormalized,
+          rawDescription: candidate.rawDescription,
+          direction: candidate.direction,
+        });
+      } catch (reconciliationError) {
+        console.error(
+          `[document-processing] reconciliação falhou p/ evento ${interpretedEventId} (não bloqueia o documento):`,
+          reconciliationError,
+        );
+      }
+    }
   }
 
   const fullText = extraction.pages.map((p) => p.rawText).join("\n");
 
   // Detecção de instituição — só preenche o que ainda está vazio, nunca sobrescreve.
-  if (!doc.institution_name) {
+  let institutionName = doc.institution_name;
+  if (!institutionName) {
     const institution = detectInstitution(fullText);
     if (institution) {
+      institutionName = institution;
       await supabase.from("extracted_entities").insert({
         id: randomUUID(),
         run_id: runId,
@@ -283,6 +311,35 @@ async function processRun(input: {
       artifact_type: "document_header",
       content: headerFacts,
     });
+
+    // Macrofase 7 (PRD 2.0 §11) — reaproveita os valores 'bill'/'boleto' do enum
+    // `extracted_entity_type` (definidos desde a Macrofase 1, nunca usados até
+    // agora) pra tornar o total da fatura / valor do boleto buscável pela
+    // Reconciliation Engine de OUTROS documentos, sem precisar de migração nova.
+    // Só grava quando há valor pra reconciliar — sem isso não é candidato a nada.
+    if (headerFacts.kind === "fatura_cartao" && headerFacts.totalAmount != null) {
+      await supabase.from("extracted_entities").insert({
+        id: randomUUID(),
+        run_id: runId,
+        document_id: doc.id,
+        entity_type: "bill",
+        raw_value: institutionName ?? "Fatura de cartão",
+        normalized_value: institutionName ?? null,
+        confidence: 0.7,
+        metadata: headerFacts,
+      });
+    } else if (headerFacts.kind === "boleto" && headerFacts.amount != null) {
+      await supabase.from("extracted_entities").insert({
+        id: randomUUID(),
+        run_id: runId,
+        document_id: doc.id,
+        entity_type: "boleto",
+        raw_value: headerFacts.beneficiary ?? "Boleto",
+        normalized_value: headerFacts.beneficiary,
+        confidence: 0.7,
+        metadata: headerFacts,
+      });
+    }
   }
 
   const metrics = {
