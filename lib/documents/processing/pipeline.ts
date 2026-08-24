@@ -254,6 +254,17 @@ async function processRun(input: {
     if (!interpretedError) {
       interpretedCount++;
 
+      // Macrofase 8 (ERD 2.0 §12 "Evidência Documental") — todo evento interpretado
+      // nasce com o próprio documento como evidência 'primary'. A fila de revisão
+      // soma evidências 'supporting' quando uma correspondência de outro documento
+      // é aceita (ver `actions/document-review.ts`), sem nunca substituir esta.
+      await supabase.from("document_event_evidence").insert({
+        id: randomUUID(),
+        interpreted_event_id: interpretedEventId,
+        document_id: doc.id,
+        role: "primary",
+      });
+
       // Macrofase 7 (PRD 2.0 §11) — best-effort: uma falha na reconciliação
       // nunca pode derrubar o processamento do documento em si, então qualquer
       // erro aqui só é logado, nunca propagado pro catch da run inteira.

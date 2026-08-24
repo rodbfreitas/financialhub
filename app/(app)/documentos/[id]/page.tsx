@@ -9,8 +9,10 @@ import { ProcessingStatusPoller } from "@/components/documents/processing-status
 import { DocumentEventsList, type DocumentEventRow } from "@/components/documents/document-events-list";
 import { DocumentHeaderSummary } from "@/components/documents/document-header-summary";
 import type { DocumentHeaderFacts } from "@/lib/documents/document-header";
+import { getReviewQueueForDocument } from "@/lib/documents/review/queue";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ClipboardList } from "lucide-react";
 
 export const metadata: Metadata = { title: "Documento — Financial Hub Familiar" };
 
@@ -85,6 +87,9 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
       : Promise.resolve({ data: null }),
   ]);
 
+  const reviewQueue = showEvents ? await getReviewQueueForDocument(supabase, id) : [];
+  const pendingReviewCount = reviewQueue.length;
+
   const { data: headerArtifact } = latestRun
     ? await supabase
         .from("processing_artifacts")
@@ -134,14 +139,24 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         </CardContent>
       </Card>
 
-      {signed?.signedUrl ? (
-        <div>
-          <Button asChild variant="outline" size="sm" className="gap-1.5">
-            <a href={signed.signedUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="size-4" />
-              Abrir arquivo original
-            </a>
-          </Button>
+      {signed?.signedUrl || pendingReviewCount > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {signed?.signedUrl ? (
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <a href={signed.signedUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="size-4" />
+                Abrir arquivo original
+              </a>
+            </Button>
+          ) : null}
+          {pendingReviewCount > 0 ? (
+            <Button asChild size="sm" className="gap-1.5">
+              <Link href={`/documentos/${id}/revisao`}>
+                <ClipboardList className="size-4" />
+                Abrir revisão · {pendingReviewCount} {pendingReviewCount === 1 ? "item" : "itens"}
+              </Link>
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
