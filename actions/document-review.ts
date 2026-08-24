@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId } from "@/lib/supabase/household";
 import { getReviewQueueForDocument } from "@/lib/documents/review/queue";
 import { runReconciliationForEvent } from "@/lib/documents/reconciliation/engine";
+import { materializeAcceptedEvent } from "@/lib/documents/materialization/import-materializer";
 import type { Database } from "@/types/database";
 
 type FinancialEventType = Database["public"]["Enums"]["financial_event_type"];
@@ -62,11 +63,57 @@ function revalidateReview(documentId: string) {
   revalidatePath("/documentos");
 }
 
+/**
+ * Fase 2 — Macrofase 9 (ERD 2.0 §18/§20): aceitar um evento materializa ele como
+ * `import_rows`, reaproveitando o pipeline de confirmação da Etapa 9 — MAS só quando
+ * o evento é, de fato, um lançamento novo. Se uma correspondência já foi aceita
+ * (Macrofase 8) marcando este evento como DUPLICATE/SETTLEMENT/BILL_PAYMENT contra
+ * uma transação já existente, criar um import_row aqui duplicaria a transação —
+ * o evento já virou evidência dela via `transaction_evidence_links`, então "aceitar"
+ * só confirma a leitura, sem gerar staging novo.
+ */
 export async function acceptEvent(documentId: string, interpretedEventId: string): Promise<DocumentReviewActionState> {
   const supabase = await createClient();
   const householdId = await getActiveHouseholdId(supabase);
   if (!householdId) return { error: "Não foi possível identificar seu household." };
   const userId = await currentUserId(supabase);
+
+  const { data: alreadySettled } = await supabase
+    .from("reconciliation_candidates")
+    .select("id")
+    .eq("interpreted_event_id", interpretedEventId)
+    .eq("status", "accepted")
+    .eq("candidate_type", "transaction")
+    .in("relation_type_suggested", ["DUPLICATE", "SETTLEMENT", "BILL_PAYMENT"])
+    .limit(1)
+    .maybeSingle();
+
+  if (!alreadySettled) {
+    const { data: event } = await supabase
+      .from("interpreted_financial_events")
+      .select("event_type, amount, effective_date, merchant_normalized, extracted_financial_events(raw_description, direction)")
+      .eq("id", interpretedEventId)
+      .maybeSingle();
+
+    if (!event || event.amount === null || event.effective_date === null) {
+      return { error: "Este lançamento não tem valor ou data suficientes para ser confirmado." };
+    }
+
+    const result = await materializeAcceptedEvent(supabase, {
+      householdId,
+      documentId,
+      interpretedEventId,
+      eventType: event.event_type,
+      amount: event.amount,
+      effectiveDate: event.effective_date,
+      merchantNormalized: event.merchant_normalized,
+      rawDescription: event.extracted_financial_events?.raw_description ?? null,
+      direction: (event.extracted_financial_events?.direction as "debit" | "credit" | null) ?? null,
+      decidedBy: userId,
+    });
+
+    if (result.status === "error") return { error: result.message };
+  }
 
   const { error } = await supabase.from("document_review_decisions").insert({
     id: randomUUID(),
@@ -199,6 +246,22 @@ export async function editEvent(input: EditEventInput): Promise<DocumentReviewAc
   } catch (reconciliationError) {
     console.error(`[document-review] reconciliação falhou p/ evento editado ${newEventId}:`, reconciliationError);
   }
+
+  // Editar já implica confirmar o valor corrigido (Macrofase 9) — uma versão recém
+  // criada nunca pode ter um candidato já aceito contra ela, então materializa direto.
+  const materializeResult = await materializeAcceptedEvent(supabase, {
+    householdId: extractedEvent.household_id,
+    documentId: extractedEvent.document_id,
+    interpretedEventId: newEventId,
+    eventType: input.eventType,
+    amount: input.amount,
+    effectiveDate: input.effectiveDate,
+    merchantNormalized: input.merchantNormalized,
+    rawDescription: extractedEvent.raw_description,
+    direction: extractedEvent.direction as "debit" | "credit" | null,
+    decidedBy: userId,
+  });
+  if (materializeResult.status === "error") return { error: materializeResult.message };
 
   const { error: decisionError } = await supabase.from("document_review_decisions").insert({
     id: randomUUID(),

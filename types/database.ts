@@ -1354,6 +1354,7 @@ export type Database = {
           duplicate_candidate_id: string | null
           id: string
           import_id: string
+          interpreted_event_id: string | null
           parsed_amount: number | null
           parsed_date: string | null
           parsed_description: string | null
@@ -1369,6 +1370,7 @@ export type Database = {
           duplicate_candidate_id?: string | null
           id?: string
           import_id: string
+          interpreted_event_id?: string | null
           parsed_amount?: number | null
           parsed_date?: string | null
           parsed_description?: string | null
@@ -1384,6 +1386,7 @@ export type Database = {
           duplicate_candidate_id?: string | null
           id?: string
           import_id?: string
+          interpreted_event_id?: string | null
           parsed_amount?: number | null
           parsed_date?: string | null
           parsed_description?: string | null
@@ -1406,6 +1409,13 @@ export type Database = {
             columns: ["import_id"]
             isOneToOne: false
             referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_interpreted_event_id_fkey"
+            columns: ["interpreted_event_id"]
+            isOneToOne: true
+            referencedRelation: "interpreted_financial_events"
             referencedColumns: ["id"]
           },
           {
