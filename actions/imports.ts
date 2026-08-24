@@ -521,3 +521,107 @@ export async function cancelImport(importId: string): Promise<ActionState> {
   revalidatePath(`/importar/${importId}`);
   return { success: "Importação cancelada." };
 }
+
+/**
+ * Fase 2 — Macrofase 10 (Confirmação em lote): imports de arquivo (CSV/XLSX/OFX)
+ * sempre exigem conta ou cartão de destino no upload (`importUploadSchema`,
+ * `createImport` acima) — nunca chegam aqui sem destino. Já um import materializado
+ * por um evento de documento aceito (`source_type: 'ai'`, Macrofase 9) pode nascer
+ * sem destino resolvido — a heurística de `resolveDestination()` é best-effort (4
+ * últimos dígitos do cartão, nome da instituição) e não bate sempre. Nesse caso a
+ * tela de detalhe pede a mesma escolha que o upload manual pediria, e só então libera
+ * a tabela de revisão — nunca deixa confirmar sem destino, review de arquivo ou de IA.
+ */
+async function refreshImportRowsDedupForNewDestination(
+  supabase: Supa,
+  householdId: string,
+  importId: string,
+  destination: { accountId: string | null; creditCardId: string | null },
+): Promise<void> {
+  const { data: rows } = await supabase
+    .from("import_rows")
+    .select("id, parsed_date, parsed_description, parsed_amount, suggested_category_id, status")
+    .eq("import_id", importId)
+    .in("status", ["pending", "suggested", "duplicate"]);
+
+  for (const row of rows ?? []) {
+    if (!row.parsed_date || !row.parsed_description || row.parsed_amount === null) continue;
+
+    const dedupHash = computeDedupHash({
+      accountId: destination.accountId,
+      creditCardId: destination.creditCardId,
+      date: row.parsed_date,
+      amount: row.parsed_amount,
+      description: row.parsed_description,
+    });
+    const duplicateId = await findDuplicateTransaction(supabase, householdId, { dedupHash });
+
+    const nextStatus: Database["public"]["Enums"]["import_row_status"] = duplicateId
+      ? "duplicate"
+      : row.suggested_category_id
+        ? "suggested"
+        : "pending";
+
+    await supabase
+      .from("import_rows")
+      .update({ duplicate_candidate_id: duplicateId, status: nextStatus })
+      .eq("id", row.id);
+  }
+}
+
+export async function setImportDestination(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const importId = String(formData.get("importId") ?? "");
+  if (!importId) return { error: "Importação inválida." };
+
+  const parsed = importUploadSchema.safeParse({
+    destination: formData.get("destination"),
+    accountId: formData.get("accountId"),
+    creditCardId: formData.get("creditCardId"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const supabase = await createClient();
+  const householdId = await getActiveHouseholdId(supabase);
+  if (!householdId) return { error: "Não foi possível identificar seu household." };
+
+  const { data: importRecord } = await supabase
+    .from("imports")
+    .select("id, status, source_type")
+    .eq("id", importId)
+    .eq("household_id", householdId)
+    .single();
+
+  if (!importRecord) return { error: "Importação não encontrada." };
+  if (importRecord.source_type !== "ai") {
+    return { error: "O destino desta importação não pode ser alterado por aqui." };
+  }
+  if (importRecord.status !== "review") {
+    return { error: "Esta importação já foi confirmada ou não está pronta para revisão." };
+  }
+
+  const d = parsed.data;
+  const accountId = d.destination === "account" ? (d.accountId ?? null) : null;
+  const creditCardId = d.destination === "credit_card" ? (d.creditCardId ?? null) : null;
+
+  const { data: destinationOwner } = accountId
+    ? await supabase.from("accounts").select("id").eq("id", accountId).eq("household_id", householdId).maybeSingle()
+    : await supabase
+        .from("credit_cards")
+        .select("id")
+        .eq("id", creditCardId!)
+        .eq("household_id", householdId)
+        .maybeSingle();
+
+  if (!destinationOwner) return { error: "Conta/cartão de destino não encontrado." };
+
+  const { error } = await supabase
+    .from("imports")
+    .update({ account_id: accountId, credit_card_id: creditCardId })
+    .eq("id", importId);
+  if (error) return { error: "Não foi possível definir o destino." };
+
+  await refreshImportRowsDedupForNewDestination(supabase, householdId, importId, { accountId, creditCardId });
+
+  revalidatePath(`/importar/${importId}`);
+  return { success: "Destino definido." };
+}

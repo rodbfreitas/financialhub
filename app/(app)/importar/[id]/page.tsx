@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CheckCircle2, FileWarning, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileText, FileWarning, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveHouseholdId } from "@/lib/supabase/household";
 import { ImportColumnMappingForm } from "@/components/imports/import-column-mapping-form";
 import { ImportReviewTable, type ReviewRow } from "@/components/imports/import-review-table";
+import { ImportDestinationForm } from "@/components/imports/import-destination-form";
 import { CancelImportButton } from "@/components/imports/cancel-import-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,23 +35,50 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ i
 
   const destinationName = imp.accounts?.name ?? imp.credit_cards?.name ?? "—";
   const defaultProfileId = imp.accounts?.profile_id ?? imp.credit_cards?.profile_id ?? "";
+  // Fase 2 — Macrofase 9/10: um import "ai" nasce de exatamente um documento
+  // (`getOrCreateImportForDocument`); a busca reversa por `import_id` traz a origem
+  // pra exibir o link de rastreabilidade, sem misturar documento e ledger na mesma
+  // entidade (guardrail UX/UI 2.0 §30) — só um link de referência.
+  const needsDestination = imp.source_type === "ai" && imp.status === "review" && !imp.account_id && !imp.credit_card_id;
 
-  const [{ data: rows }, { data: categories }, { data: profiles }] = await Promise.all([
-    supabase.from("import_rows").select("*").eq("import_id", id).order("created_at", { ascending: true }),
-    supabase
-      .from("categories")
-      .select("id, name, subcategories(id, name)")
-      .eq("household_id", householdId)
-      .eq("active", true)
-      .order("display_order", { ascending: true }),
-    supabase
-      .from("profiles")
-      .select("id, name")
-      .eq("household_id", householdId)
-      .eq("active", true)
-      .is("deleted_at", null)
-      .order("name", { ascending: true }),
-  ]);
+  const [{ data: rows }, { data: categories }, { data: profiles }, { data: accounts }, { data: creditCards }, { data: sourceDocument }] =
+    await Promise.all([
+      supabase.from("import_rows").select("*").eq("import_id", id).order("created_at", { ascending: true }),
+      supabase
+        .from("categories")
+        .select("id, name, subcategories(id, name)")
+        .eq("household_id", householdId)
+        .eq("active", true)
+        .order("display_order", { ascending: true }),
+      supabase
+        .from("profiles")
+        .select("id, name")
+        .eq("household_id", householdId)
+        .eq("active", true)
+        .is("deleted_at", null)
+        .order("name", { ascending: true }),
+      needsDestination
+        ? supabase
+            .from("accounts")
+            .select("id, name")
+            .eq("household_id", householdId)
+            .eq("active", true)
+            .is("deleted_at", null)
+            .order("name", { ascending: true })
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      needsDestination
+        ? supabase
+            .from("credit_cards")
+            .select("id, name")
+            .eq("household_id", householdId)
+            .eq("active", true)
+            .is("deleted_at", null)
+            .order("name", { ascending: true })
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      imp.source_type === "ai"
+        ? supabase.from("financial_documents").select("id, original_filename").eq("import_id", id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
   const categoryOptions = (categories ?? []).map((c) => ({
     id: c.id,
@@ -117,6 +145,14 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ i
           </Link>
           <h1 className="text-xl font-semibold">{imp.filename}</h1>
           <p className="text-sm text-muted-foreground">Destino: {destinationName}</p>
+          {sourceDocument ? (
+            <Link
+              href={`/documentos/${sourceDocument.id}`}
+              className="mt-1 flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              <FileText className="size-3.5" /> Documento de origem: {sourceDocument.original_filename}
+            </Link>
+          ) : null}
         </div>
         {(imp.status === "processing" || imp.status === "failed") && (
           <CancelImportButton importId={imp.id} />
@@ -131,7 +167,11 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ i
         />
       ) : null}
 
-      {imp.status === "review" ? (
+      {imp.status === "review" && needsDestination ? (
+        <ImportDestinationForm importId={imp.id} accounts={accounts ?? []} creditCards={creditCards ?? []} />
+      ) : null}
+
+      {imp.status === "review" && !needsDestination ? (
         <ImportReviewTable
           importId={imp.id}
           rows={reviewRows}
