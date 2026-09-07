@@ -67,8 +67,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           householdName={membership.household?.name ?? ""}
         />
         <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar />
-          <MobileHeader />
+          <TopBar userName={userName} userEmail={user.email ?? ""} />
+          <MobileHeader userName={userName} userEmail={user.email ?? ""} />
           <main className="flex flex-1 flex-col pb-16 md:pb-0">{children}</main>
         </div>
         <MobileBottomNav />
