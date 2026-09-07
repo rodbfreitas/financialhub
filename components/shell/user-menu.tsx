@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, Settings, ChevronDown } from "lucide-react";
+import { LogOut, Settings, CircleHelp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,10 +15,11 @@ import { signOut } from "@/actions/auth";
 
 /**
  * Menu do usuário logado — identifica quem está logado (nome + e-mail) e dá acesso
- * rápido a "Configurações da conta" e "Sair" a partir de qualquer tela, na topbar
- * (desktop) e no header mobile. Antes disso a única pista de quem estava logado era
- * o rodapé da sidebar (sem opção de sair ali), o que dificultava identificar a conta
- * ativa — especialmente relevante num app de uso familiar/compartilhado.
+ * rápido a "Configurações da conta", "Ajuda" (manual + FAQ) e "Sair" a partir de
+ * qualquer tela, na topbar (desktop) e no header mobile. Antes disso a única pista de
+ * quem estava logado era o rodapé da sidebar (sem opção de sair ali), o que
+ * dificultava identificar a conta ativa — especialmente relevante num app de uso
+ * familiar/compartilhado.
  */
 export function UserMenu({
   userName,
@@ -48,6 +49,12 @@ export function UserMenu({
           <Link href="/configuracoes/conta">
             <Settings className="size-4 text-muted-foreground" />
             Configurações da conta
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/ajuda">
+            <CircleHelp className="size-4 text-muted-foreground" />
+            Ajuda
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

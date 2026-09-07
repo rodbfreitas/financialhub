@@ -15,6 +15,7 @@ import {
   FileScan,
   Plug,
   Settings,
+  CircleHelp,
 } from "lucide-react";
 
 export type NavLeaf = { label: string; href: string; icon?: LucideIcon };
@@ -31,7 +32,10 @@ export function isNavGroup(item: NavItem): item is NavGroup {
  * (Orçamento/Metas), Análises (Relatórios/Patrimônio), Documentos (Fase 2 —
  * evolução do antigo "Importar", que continua disponível como filho — UX 2.0
  * §"arquitetura de informação": reaproveita o nav existente, não cria produto
- * paralelo), Integrações, Configurações.
+ * paralelo), Integrações, Configurações. "Ajuda" (Central de Ajuda + FAQ, pedido do
+ * usuário em 07/09/2026 pensando em uso além de só ele mesmo) fica por último, fora
+ * da ordem dos documentos de especificação — não é uma função financeira, é
+ * documentação do próprio produto.
  */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Visão Geral", href: "/dashboard", icon: LayoutDashboard },
@@ -71,6 +75,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { label: "Integrações", href: "/integracoes", icon: Plug },
   { label: "Configurações", href: "/configuracoes", icon: Settings },
+  { label: "Ajuda", href: "/ajuda", icon: CircleHelp },
 ];
 
 /** Atalhos fixos da bottom navigation mobile — Design System §48. */
